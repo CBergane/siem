@@ -1,0 +1,55 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+.env.*
+*.log
+
+# ---- Virtualenv ----
+venv/
+.venv/
+
+# ---- Django ----
+db.sqlite3
+media/
+staticfiles/
+
+# ---- Node / frontend ----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Tailwind build output (anpassa om du har specifik build-dir)
+# static/src/build/
+# static/css/
+
+# ---- OS/editor ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---- GeoIP / data blobs (om detta är binärdata) ----
+geoip/
+*.mmdb
+
+# ---- Containers/local ----
+*.pid
+podman-compose.override.yaml
+docker-compose.override.yml
+
+# ---- Secrets / keys ----
+*.pem
+*.key
+*.crt
