@@ -1,0 +1,1 @@
+"""Services for logs app."""

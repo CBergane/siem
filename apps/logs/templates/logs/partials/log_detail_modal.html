@@ -1,0 +1,140 @@
+<!-- Modal Overlay -->
+<div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+     onclick="this.remove()">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+         onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between p-6 border-b border-slate-700">
+            <h2 class="text-xl font-bold text-white flex items-center">
+                <i data-lucide="file-text" class="w-5 h-5 mr-2 text-blue-400"></i>
+                Log Details
+            </h2>
+            <button onclick="document.getElementById('modal-container').innerHTML = ''"
+                    class="text-gray-400 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+        
+        <!-- Content -->
+        <div class="p-6 space-y-6">
+            <!-- Quick Info Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-slate-700/50 p-4 rounded-lg">
+                    <p class="text-xs text-gray-400 mb-1">Timestamp</p>
+                    <p class="text-sm font-semibold text-white">{{ log.timestamp|date:"Y-m-d H:i:s" }}</p>
+                </div>
+                <div class="bg-slate-700/50 p-4 rounded-lg">
+                    <p class="text-xs text-gray-400 mb-1">Source IP</p>
+                    <p class="text-sm font-mono font-semibold text-white">{{ log.src_ip }}</p>
+                </div>
+                <div class="bg-slate-700/50 p-4 rounded-lg">
+                    <p class="text-xs text-gray-400 mb-1">Action</p>
+                    <p class="text-sm font-semibold text-white">{{ log.action|title }}</p>
+                </div>
+                <div class="bg-slate-700/50 p-4 rounded-lg">
+                    <p class="text-xs text-gray-400 mb-1">Severity</p>
+                    <p class="text-sm font-semibold text-white">{{ log.severity|title }}</p>
+                </div>
+            </div>
+            
+            <!-- Details Table -->
+            <div class="bg-slate-900/50 rounded-lg overflow-hidden">
+                <table class="w-full">
+                    <tbody class="divide-y divide-slate-700">
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400 w-1/3">Organization</td>
+                            <td class="px-4 py-3 text-sm text-white">{{ log.organization.name }}</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400">Source Type</td>
+                            <td class="px-4 py-3 text-sm text-white">{{ log.source_type|title }}</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400">Source Host</td>
+                            <td class="px-4 py-3 text-sm text-white">{{ log.source_host }}</td>
+                        </tr>
+                        {% if log.src_port %}
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400">Source Port</td>
+                            <td class="px-4 py-3 text-sm text-white">{{ log.src_port }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if log.method %}
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400">HTTP Method</td>
+                            <td class="px-4 py-3 text-sm text-white">{{ log.method }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if log.path %}
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400">Path</td>
+                            <td class="px-4 py-3 text-sm text-white font-mono">{{ log.path }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if log.status_code %}
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400">Status Code</td>
+                            <td class="px-4 py-3 text-sm text-white">{{ log.status_code }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if log.bytes_sent %}
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400">Bytes Sent</td>
+                            <td class="px-4 py-3 text-sm text-white">{{ log.bytes_sent|filesizeformat }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if log.user_agent %}
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400">User Agent</td>
+                            <td class="px-4 py-3 text-sm text-white break-all">{{ log.user_agent }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if log.reason %}
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-400">Reason</td>
+                            <td class="px-4 py-3 text-sm text-white">{{ log.reason }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Metadata -->
+            {% if log.metadata %}
+            <div>
+                <h3 class="text-sm font-semibold text-white mb-3 flex items-center">
+                    <i data-lucide="code" class="w-4 h-4 mr-2 text-purple-400"></i>
+                    Metadata
+                </h3>
+                <div class="bg-slate-900/50 p-4 rounded-lg">
+                    <pre class="text-xs text-gray-300 overflow-x-auto">{{ log.metadata|safe }}</pre>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Raw Log -->
+            <div>
+                <h3 class="text-sm font-semibold text-white mb-3 flex items-center">
+                    <i data-lucide="terminal" class="w-4 h-4 mr-2 text-green-400"></i>
+                    Raw Log
+                </h3>
+                <div class="bg-slate-900 p-4 rounded-lg">
+                    <pre class="text-xs text-gray-300 font-mono overflow-x-auto">{{ log.raw_log }}</pre>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="flex justify-end p-6 border-t border-slate-700">
+            <button onclick="document.getElementById('modal-container').innerHTML = ''"
+                    class="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Re-initialize Lucide icons in modal
+    lucide.createIcons();
+</script>
