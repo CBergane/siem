@@ -2,8 +2,8 @@
 CrowdSec decision parser.
 """
 import json
-from datetime import datetime
 from typing import Dict, Optional
+from django.utils import timezone
 
 
 class CrowdSecParser:
@@ -66,7 +66,7 @@ class CrowdSecParser:
             severity = 'medium'
         
         return {
-            'timestamp': datetime.now(),  # CrowdSec doesn't always include timestamp
+            'timestamp': timezone.now(),  # CrowdSec doesn't always include timestamp
             'src_ip': src_ip,
             'action': action,
             'severity': severity,

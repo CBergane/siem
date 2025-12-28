@@ -4,6 +4,7 @@ Fail2ban log parser.
 import re
 from datetime import datetime
 from typing import Dict, Optional
+from django.utils import timezone
 
 
 class Fail2banParser:
@@ -70,10 +71,12 @@ class Fail2banParser:
             try:
                 timestamp_str = data['timestamp']
                 timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                if timezone.is_naive(timestamp):
+                    timestamp = timezone.make_aware(timestamp)
             except Exception:
-                timestamp = datetime.now()
+                timestamp = timezone.now()
         else:
-            timestamp = datetime.now()
+            timestamp = timezone.now()
         
         # Determine action (normalize to lowercase)
         action_str = data['action'].lower()

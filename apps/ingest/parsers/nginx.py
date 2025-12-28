@@ -4,6 +4,7 @@ Nginx log parser for combined log format.
 import re
 from datetime import datetime
 from typing import Dict, Optional
+from django.utils import timezone
 
 
 class NginxParser:
@@ -72,8 +73,10 @@ class NginxParser:
             # Remove timezone for simplicity
             timestamp_str = data['time_local'].split(' ')[0]
             timestamp = datetime.strptime(timestamp_str, '%d/%b/%Y:%H:%M:%S')
+            if timezone.is_naive(timestamp):
+                timestamp = timezone.make_aware(timestamp)
         except Exception:
-            timestamp = datetime.now()
+            timestamp = timezone.now()
         
         # Get user agent (if exists)
         user_agent = data.get('http_user_agent', '')

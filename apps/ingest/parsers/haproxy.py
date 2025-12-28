@@ -4,6 +4,7 @@ HAProxy log parser.
 import re
 from datetime import datetime
 from typing import Dict, Optional
+from django.utils import timezone
 
 
 class HAProxyParser:
@@ -55,8 +56,10 @@ class HAProxyParser:
         try:
             timestamp_str = data['timestamp'].split('.')[0]
             timestamp = datetime.strptime(timestamp_str, '%d/%b/%Y:%H:%M:%S')
+            if timezone.is_naive(timestamp):
+                timestamp = timezone.make_aware(timestamp)
         except Exception:
-            timestamp = datetime.now()
+            timestamp = timezone.now()
         
         return {
             'timestamp': timestamp,
