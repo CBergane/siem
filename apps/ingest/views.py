@@ -1,19 +1,22 @@
 """
 Ingest API views.
 """
+from datetime import datetime
+import json
+import logging
+
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
 from .authentication import api_key_required, agent_signature_required
 from .parsers.haproxy import HAProxyParser
 from .parsers.nginx import NginxParser
 from .parsers.crowdsec import CrowdSecParser
 from .parsers.fail2ban import Fail2banParser
-from apps.logs.models import SecurityLog
+from apps.logs.models import SecurityLog, ServiceSnapshot
 from apps.logs.tasks import enrich_log_with_geoip
 from apps.logs.services.server_discovery import ServerDiscoveryService
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -431,3 +434,44 @@ def ingest_generic(request):
     except Exception as e:
         logger.error(f"Error in generic ingest: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============================================================================
+# SERVICE INVENTORY
+# ============================================================================
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@api_key_required
+@agent_signature_required
+def ingest_service_inventory(request):
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    services = data.get('services')
+    if not services:
+        return JsonResponse({'error': 'Missing "services" field'}, status=400)
+
+    server_name = data.get('server_name', 'unknown')
+    captured_at_raw = data.get('captured_at')
+
+    if captured_at_raw is None:
+        captured_at = timezone.now()
+    else:
+        try:
+            captured_at = datetime.fromtimestamp(int(captured_at_raw))
+            if timezone.is_naive(captured_at):
+                captured_at = timezone.make_aware(captured_at)
+        except (TypeError, ValueError, OSError):
+            return JsonResponse({'error': 'Invalid "captured_at" value'}, status=400)
+
+    ServiceSnapshot.objects.create(
+        organization=request.organization,
+        source_host=server_name,
+        captured_at=captured_at,
+        services=services,
+    )
+
+    return JsonResponse({'success': True}, status=202)

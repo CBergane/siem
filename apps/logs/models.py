@@ -126,5 +126,16 @@ class SecurityLog(BaseModel):
         
         return chr(ord(code[0]) + 0x1F1A5) + chr(ord(code[1]) + 0x1F1A5)
 
+
+class ServiceSnapshot(BaseModel):
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.CASCADE,
+        related_name='service_snapshots'
+    )
+    source_host = models.CharField(max_length=255)
+    captured_at = models.DateTimeField(db_index=True)
+    services = models.JSONField(default=list)
+
 # Import ServerAlias model
 from .models_server_alias import ServerAlias

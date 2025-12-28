@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.ingest.authentication import TIMESTAMP_SKEW_SECONDS
+from apps.logs.models import ServiceSnapshot
 from apps.organizations.models import APIKey, Agent, Organization
 
 
@@ -106,3 +107,64 @@ class AgentSignatureTests(TestCase):
             **self._headers(timestamp=old_ts),
         )
         self.assertEqual(response.status_code, 401)
+
+
+@override_settings(AGENT_HMAC_SECRET="test-secret")
+class ServiceInventoryTests(TestCase):
+    def setUp(self):
+        self.organization = Organization.objects.create(name="Test Org", slug="test-org")
+        self.api_key_value = APIKey.generate_key()
+        self.api_key = APIKey(organization=self.organization, name="Agent Key")
+        self.api_key.encrypt_key(self.api_key_value)
+        self.api_key.save()
+        self.agent = Agent.objects.create(
+            agent_id="agent-1",
+            organization=self.organization,
+            is_active=True,
+        )
+
+        self.url = reverse("ingest:ingest_service_inventory")
+        self.body_dict = {
+            "server_name": "host-01",
+            "services": [{"name": "ssh.service", "state": "active", "enabled": True}],
+        }
+        self.body = json.dumps(self.body_dict)
+
+    def _signature(self, body: str) -> str:
+        return hmac.new(b"test-secret", body.encode(), hashlib.sha256).hexdigest()
+
+    def _headers(self, body: str):
+        return {
+            "HTTP_AUTHORIZATION": f"Bearer {self.api_key_value}",
+            "HTTP_X_AGENT_ID": self.agent.agent_id,
+            "HTTP_X_TIMESTAMP": str(int(time.time())),
+            "HTTP_X_SIGNATURE": self._signature(body),
+        }
+
+    def test_missing_services(self):
+        body = json.dumps({"server_name": "host-01"})
+        response = self.client.post(
+            self.url,
+            data=body,
+            content_type="application/json",
+            **self._headers(body),
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_auth(self):
+        response = self.client.post(
+            self.url,
+            data=self.body,
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_valid_inventory(self):
+        response = self.client.post(
+            self.url,
+            data=self.body,
+            content_type="application/json",
+            **self._headers(self.body),
+        )
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(ServiceSnapshot.objects.count(), 1)
