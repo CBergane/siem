@@ -140,6 +140,26 @@ class APIKey(BaseModel):
             return False
 
 
+class Agent(BaseModel):
+    """Agent registry for ingest authentication."""
+
+    agent_id = models.CharField(max_length=64, unique=True)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name='agents'
+    )
+    is_active = models.BooleanField(default=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['agent_id']
+
+    def __str__(self):
+        return self.agent_id
+
+
 class OrganizationMember(BaseModel):
     """Many-to-many relationship between users and organizations with roles."""
     

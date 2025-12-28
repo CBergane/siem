@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.ingest.authentication import TIMESTAMP_SKEW_SECONDS
-from apps.organizations.models import APIKey, Organization
+from apps.organizations.models import APIKey, Agent, Organization
 
 
 @override_settings(AGENT_HMAC_SECRET="test-secret")
@@ -19,6 +19,11 @@ class AgentSignatureTests(TestCase):
         self.api_key = APIKey(organization=self.organization, name="Agent Key")
         self.api_key.encrypt_key(self.api_key_value)
         self.api_key.save()
+        self.agent = Agent.objects.create(
+            agent_id="agent-1",
+            organization=self.organization,
+            is_active=True,
+        )
 
         self.url = reverse("ingest:ingest_fail2ban")
         self.body_dict = {"log": "[sshd] Ban 10.0.0.1"}
@@ -27,12 +32,12 @@ class AgentSignatureTests(TestCase):
     def _signature(self, body: str) -> str:
         return hmac.new(b"test-secret", body.encode(), hashlib.sha256).hexdigest()
 
-    def _headers(self, *, timestamp=None, signature=None):
+    def _headers(self, *, timestamp=None, signature=None, agent_id=None):
         ts = timestamp if timestamp is not None else int(time.time())
         sig = signature if signature is not None else self._signature(self.body)
         return {
             "HTTP_AUTHORIZATION": f"Bearer {self.api_key_value}",
-            "HTTP_X_AGENT_ID": self.api_key.key_prefix,
+            "HTTP_X_AGENT_ID": agent_id or self.agent.agent_id,
             "HTTP_X_TIMESTAMP": str(ts),
             "HTTP_X_SIGNATURE": sig,
         }
@@ -47,6 +52,41 @@ class AgentSignatureTests(TestCase):
         )
         self.assertEqual(response.status_code, 202)
         mock_geoip_delay.assert_called()
+
+    def test_unknown_agent(self):
+        response = self.client.post(
+            self.url,
+            data=self.body,
+            content_type="application/json",
+            **self._headers(agent_id="missing-agent"),
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_agent_wrong_org(self):
+        other_org = Organization.objects.create(name="Other Org", slug="other-org")
+        other_agent = Agent.objects.create(
+            agent_id="agent-other",
+            organization=other_org,
+            is_active=True,
+        )
+        response = self.client.post(
+            self.url,
+            data=self.body,
+            content_type="application/json",
+            **self._headers(agent_id=other_agent.agent_id),
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_agent_inactive(self):
+        self.agent.is_active = False
+        self.agent.save(update_fields=["is_active"])
+        response = self.client.post(
+            self.url,
+            data=self.body,
+            content_type="application/json",
+            **self._headers(),
+        )
+        self.assertEqual(response.status_code, 403)
 
     def test_invalid_signature(self):
         response = self.client.post(

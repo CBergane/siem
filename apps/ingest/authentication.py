@@ -6,10 +6,11 @@ from functools import wraps
 import hashlib
 import hmac
 import os
+from datetime import timedelta
 from django.conf import settings
 from django.http import JsonResponse
 from django.utils import timezone
-from apps.organizations.models import APIKey
+from apps.organizations.models import APIKey, Agent
 
 # Defaults keep things small and safe without extra settings.
 MAX_BODY_BYTES = getattr(settings, "INGEST_MAX_BODY_BYTES", 1024 * 1024)
@@ -125,12 +126,15 @@ def agent_signature_required(view_func):
         if not agent_id or not timestamp_header or not signature_header:
             return JsonResponse({"error": "Missing authentication headers"}, status=400)
 
-        if hasattr(request, "api_key"):
-            if request.api_key.key_prefix != agent_id:
-                return JsonResponse({"error": "Unknown agent id"}, status=401)
-        else:
-            if not APIKey.objects.filter(key_prefix=agent_id, is_active=True).exists():
-                return JsonResponse({"error": "Unknown agent id"}, status=401)
+        if not hasattr(request, "organization"):
+            return JsonResponse({"error": "Missing organization context"}, status=401)
+
+        agent = Agent.objects.filter(
+            agent_id=agent_id,
+            organization=request.organization,
+        ).first()
+        if not agent or not agent.is_active:
+            return JsonResponse({"error": "Agent not allowed"}, status=403)
 
         try:
             timestamp_value = int(timestamp_header)
@@ -148,6 +152,11 @@ def agent_signature_required(view_func):
         expected_signature = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected_signature, signature_header):
             return JsonResponse({"error": "Invalid signature"}, status=401)
+
+        now = timezone.now()
+        if agent.last_seen_at is None or now - agent.last_seen_at > timedelta(minutes=5):
+            agent.last_seen_at = now
+            agent.save(update_fields=["last_seen_at"])
 
         return view_func(request, *args, **kwargs)
 
