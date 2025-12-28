@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Servers - Firewall Report Center{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between animate-slide-in">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2">Server Management</h1>
+            <p class="text-gray-400">Manage and monitor your servers</p>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+            <a href="?show_archived={% if show_archived %}false{% else %}true{% endif %}"
+               class="px-4 py-2 {% if show_archived %}bg-blue-600 hover:bg-blue-700{% else %}bg-slate-700 hover:bg-slate-600{% endif %} text-white rounded-lg transition-colors">
+                <i data-lucide="{% if show_archived %}eye-off{% else %}archive{% endif %}" class="w-4 h-4 inline"></i>
+                {% if show_archived %}Hide Archived{% else %}Show Archived{% endif %}
+            </a>
+        </div>
+    </div>
+    
+    {% for org_id, data in servers_by_org.items %}
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 animate-slide-in">
+        <h2 class="text-xl font-bold text-white mb-4">
+            {{ data.organization.name }}
+        </h2>
+        
+        {% if data.servers %}
+        <div class="space-y-4">
+            {% for stat in data.servers %}
+            <div class="bg-slate-700/50 rounded-lg p-4 hover:bg-slate-700 transition-colors {% if not stat.server.is_active %}opacity-60{% endif %}">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3 mb-2">
+                            <!-- Status Indicator -->
+                            <div class="w-3 h-3 rounded-full {% if stat.is_healthy %}bg-green-500{% elif stat.server.is_active %}bg-yellow-500{% else %}bg-gray-500{% endif %}"></div>
+                            
+                            <!-- Server Name -->
+                            <h3 class="text-lg font-semibold text-white">
+                                {{ stat.server.display_name }}
+                                {% if not stat.server.is_active %}
+                                <span class="text-xs text-gray-500">(Archived)</span>
+                                {% endif %}
+                            </h3>
+                            
+                            <!-- Environment Badge -->
+                            <span class="px-2 py-1 rounded text-xs font-semibold
+                                {% if stat.server.environment == 'production' %}bg-red-500/20 text-red-400
+                                {% elif stat.server.environment == 'staging' %}bg-yellow-500/20 text-yellow-400
+                                {% else %}bg-blue-500/20 text-blue-400{% endif %}">
+                                {{ stat.server.get_environment_display }}
+                            </span>
+                        </div>
+                        
+                        <p class="text-gray-400 text-sm">
+                            <span class="font-mono">{{ stat.server.original_hostname }}</span>
+                            {% if stat.server.description %}
+                            • {{ stat.server.description }}
+                            {% endif %}
+                        </p>
+                        
+                        <div class="flex items-center space-x-4 mt-2 text-sm text-gray-400">
+                            <span><i data-lucide="database" class="w-4 h-4 inline"></i> {{ stat.total_logs }} total logs</span>
+                            <span><i data-lucide="activity" class="w-4 h-4 inline"></i> {{ stat.recent_logs }} last 24h</span>
+                            {% if stat.server.last_seen %}
+                            <span><i data-lucide="clock" class="w-4 h-4 inline"></i> Last seen {{ stat.server.last_seen|timesince }} ago</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex items-center space-x-2">
+                        <button onclick="editServer({{ stat.server.id }}, '{{ stat.server.display_name }}', '{{ stat.server.description }}', '{{ stat.server.server_type }}', '{{ stat.server.environment }}')"
+                                class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                                title="Edit">
+                            <i data-lucide="edit-2" class="w-4 h-4"></i>
+                        </button>
+                        
+                        <form method="post" action="{% url 'logs:toggle_server' stat.server.id %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="px-3 py-2 {% if stat.server.is_active %}bg-yellow-600 hover:bg-yellow-700{% else %}bg-green-600 hover:bg-green-700{% endif %} text-white rounded-lg transition-colors"
+                                    title="{% if stat.server.is_active %}Archive{% else %}Activate{% endif %}">
+                                <i data-lucide="{% if stat.server.is_active %}archive{% else %}check-circle{% endif %}" class="w-4 h-4"></i>
+                            </button>
+                        </form>
+                        
+                        <button onclick="confirmDelete({{ stat.server.id }}, '{{ stat.server.display_name }}', {{ stat.total_logs }})"
+                                class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                                title="Delete">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-400 text-center py-8">No servers detected yet. Logs will auto-discover servers.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-white mb-4">Edit Server</h3>
+        
+        <form id="editForm" method="post" action="">
+            {% csrf_token %}
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Display Name</label>
+                    <input type="text" name="display_name" id="edit_display_name" required
+                           class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                    <textarea name="description" id="edit_description" rows="2"
+                              class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Server Type</label>
+                    <input type="text" name="server_type" id="edit_server_type" placeholder="web, api, database..."
+                           class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Environment</label>
+                    <select name="environment" id="edit_environment"
+                            class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500">
+                        <option value="production">Production</option>
+                        <option value="staging">Staging</option>
+                        <option value="development">Development</option>
+                        <option value="testing">Testing</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-6">
+                <button type="button" onclick="closeModal()"
+                        class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-slate-800 border border-red-700 rounded-xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-red-400 mb-4">⚠️ Delete Server?</h3>
+        
+        <p class="text-gray-300 mb-4">
+            Are you sure you want to delete <strong id="delete_server_name"></strong>?
+        </p>
+        <p class="text-gray-400 text-sm mb-4">
+            This will keep <strong id="delete_log_count"></strong> existing logs but remove the server alias.
+        </p>
+        
+        <form id="deleteForm" method="post" action="">
+            {% csrf_token %}
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeDeleteModal()"
+                        class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
+                    Delete Server
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editServer(id, name, description, type, environment) {
+    document.getElementById('editForm').action = `/logs/servers/${id}/update/`;
+    document.getElementById('edit_display_name').value = name;
+    document.getElementById('edit_description').value = description;
+    document.getElementById('edit_server_type').value = type;
+    document.getElementById('edit_environment').value = environment;
+    document.getElementById('editModal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('editModal').classList.add('hidden');
+}
+
+function confirmDelete(id, name, logCount) {
+    document.getElementById('deleteForm').action = `/logs/servers/${id}/delete/`;
+    document.getElementById('delete_server_name').textContent = name;
+    document.getElementById('delete_log_count').textContent = logCount;
+    document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+}
+</script>
+{% endblock %}

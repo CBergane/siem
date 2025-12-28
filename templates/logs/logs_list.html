@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Security Logs - Firewall Report Center{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2">Security Logs</h1>
+            <p class="text-gray-400">View and filter security events</p>
+        </div>
+        <a href="{% url 'logs:export_csv' %}?{{ request.GET.urlencode }}" 
+           class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Export CSV</span>
+        </a>
+    </div>
+    
+    <!-- Filters -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+            <i data-lucide="filter" class="w-5 h-5 mr-2 text-blue-400"></i>
+            Filters
+        </h3>
+        
+        <form hx-get="{% url 'logs:table_partial' %}" 
+              hx-target="#logs-table" 
+              hx-swap="innerHTML"
+              hx-trigger="change, submit"
+              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- Date From -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">From Date</label>
+                <input type="datetime-local" 
+                       name="date_from" 
+                       value="{{ filters.date_from }}"
+                       class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+            
+            <!-- Date To -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">To Date</label>
+                <input type="datetime-local" 
+                       name="date_to" 
+                       value="{{ filters.date_to }}"
+                       class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+            
+            <!-- Source -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Source</label>
+                <select name="source" 
+                        class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">All Sources</option>
+                    {% for source in sources %}
+                    <option value="{{ source }}" {% if filters.source == source %}selected{% endif %}>
+                        {{ source|title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Action -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Action</label>
+                <select name="action" 
+                        class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">All Actions</option>
+                    {% for action in actions %}
+                    <option value="{{ action }}" {% if filters.action == action %}selected{% endif %}>
+                        {{ action|title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Severity -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Severity</label>
+                <select name="severity" 
+                        class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">All Severities</option>
+                    {% for severity in severities %}
+                    <option value="{{ severity }}" {% if filters.severity == severity %}selected{% endif %}>
+                        {{ severity|title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Country (NEW!) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">🌍 Country</label>
+                <select name="country" 
+                        class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">All Countries</option>
+                    {% for country in countries %}
+                    <option value="{{ country.country_code }}" {% if filters.country == country.country_code %}selected{% endif %}>
+                        {{ country.country_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- IP Search -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">IP Address</label>
+                <input type="text" 
+                       name="ip" 
+                       value="{{ filters.ip }}"
+                       placeholder="Search IP..."
+                       class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+            
+            <!-- Buttons -->
+            <div class="flex items-end space-x-2">
+                <button type="submit" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                    <span>Filter</span>
+                </button>
+                <a href="{% url 'logs:list' %}" 
+                   class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center space-x-2">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                    <span>Clear</span>
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Logs Table -->
+    <div id="logs-table">
+        {% include 'logs/partials/logs_table.html' %}
+    </div>
+</div>
+
+<!-- Modal Container -->
+<div id="modal-container"></div>
+{% endblock %}

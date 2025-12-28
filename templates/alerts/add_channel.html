@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Add Integration - Firewall Report Center{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <!-- Header -->
+    <div>
+        <a href="{% url 'alerts:integrations_list' %}" class="text-blue-400 hover:text-blue-300 text-sm flex items-center space-x-1 mb-4">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Back to Integrations</span>
+        </a>
+        <h1 class="text-3xl font-bold text-white mb-2">Add Integration</h1>
+        <p class="text-gray-400">Configure a new notification channel for {{ organization.name }}</p>
+    </div>
+    
+    <!-- Form -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <form method="post" id="channelForm">
+            {% csrf_token %}
+            
+            <!-- Channel Type -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-300 mb-3">Channel Type</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Slack -->
+                    <div class="channel-type-option" data-type="slack">
+                        <input type="radio" name="channel_type" value="slack" id="type_slack" class="hidden channel-radio" required>
+                        <label for="type_slack" class="block p-4 border-2 border-slate-600 rounded-lg cursor-pointer hover:border-purple-500 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                    <i data-lucide="hash" class="w-5 h-5 text-purple-400"></i>
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-white">Slack</div>
+                                    <div class="text-xs text-gray-400">Webhook integration</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <!-- Discord -->
+                    <div class="channel-type-option" data-type="discord">
+                        <input type="radio" name="channel_type" value="discord" id="type_discord" class="hidden channel-radio" required>
+                        <label for="type_discord" class="block p-4 border-2 border-slate-600 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center">
+                                    <i data-lucide="message-circle" class="w-5 h-5 text-indigo-400"></i>
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-white">Discord</div>
+                                    <div class="text-xs text-gray-400">Webhook integration</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <!-- Email -->
+                    <div class="channel-type-option" data-type="email">
+                        <input type="radio" name="channel_type" value="email" id="type_email" class="hidden channel-radio" required>
+                        <label for="type_email" class="block p-4 border-2 border-slate-600 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                    <i data-lucide="mail" class="w-5 h-5 text-blue-400"></i>
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-white">Email</div>
+                                    <div class="text-xs text-gray-400">Email notifications</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <!-- Generic Webhook -->
+                    <div class="channel-type-option" data-type="webhook">
+                        <input type="radio" name="channel_type" value="webhook" id="type_webhook" class="hidden channel-radio" required>
+                        <label for="type_webhook" class="block p-4 border-2 border-slate-600 rounded-lg cursor-pointer hover:border-gray-500 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gray-500/20 rounded-lg flex items-center justify-center">
+                                    <i data-lucide="link" class="w-5 h-5 text-gray-400"></i>
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-white">Webhook</div>
+                                    <div class="text-xs text-gray-400">Generic webhook</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Channel Name -->
+            <div class="mb-6">
+                <label for="name" class="block text-sm font-medium text-gray-300 mb-2">Channel Name</label>
+                <input type="text" 
+                       name="name" 
+                       id="name" 
+                       required
+                       placeholder="e.g., Security Alerts, #security-team"
+                       class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Friendly name to identify this channel</p>
+            </div>
+            
+            <!-- Webhook URL (for Slack, Discord, Webhook) -->
+            <div id="webhookConfig" class="mb-6 hidden">
+                <label for="webhook_url" class="block text-sm font-medium text-gray-300 mb-2">Webhook URL</label>
+                <input type="url" 
+                       name="webhook_url" 
+                       id="webhook_url"
+                       placeholder="https://hooks.slack.com/services/..."
+                       class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                
+                <!-- Instructions per type -->
+                <div id="slackInstructions" class="mt-3 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg text-sm text-purple-200 hidden">
+                    <p class="font-semibold mb-1">Slack Setup:</p>
+                    <ol class="list-decimal list-inside space-y-1 text-purple-300/80">
+                        <li>Go to <a href="https://api.slack.com/messaging/webhooks" target="_blank" class="underline">api.slack.com/messaging/webhooks</a></li>
+                        <li>Create an Incoming Webhook for your workspace</li>
+                        <li>Select the channel to post to</li>
+                        <li>Copy the webhook URL and paste it above</li>
+                    </ol>
+                </div>
+                
+                <div id="discordInstructions" class="mt-3 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-sm text-indigo-200 hidden">
+                    <p class="font-semibold mb-1">Discord Setup:</p>
+                    <ol class="list-decimal list-inside space-y-1 text-indigo-300/80">
+                        <li>Open your Discord server settings</li>
+                        <li>Go to Integrations → Webhooks</li>
+                        <li>Create a new webhook</li>
+                        <li>Select the channel and copy the webhook URL</li>
+                    </ol>
+                </div>
+            </div>
+            
+            <!-- Email Recipients (for Email) -->
+            <div id="emailConfig" class="mb-6 hidden">
+                <label for="recipients" class="block text-sm font-medium text-gray-300 mb-2">Email Recipients</label>
+                <input type="text" 
+                       name="recipients" 
+                       id="recipients"
+                       placeholder="security@company.com, admin@company.com"
+                       class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Comma-separated list of email addresses</p>
+            </div>
+            
+            <!-- Submit Buttons -->
+            <div class="flex items-center space-x-3 pt-4 border-t border-slate-700">
+                <button type="submit" 
+                        class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    <span>Add Integration</span>
+                </button>
+                <a href="{% url 'alerts:integrations_list' %}" 
+                   class="px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Handle channel type selection
+document.querySelectorAll('.channel-radio').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const type = this.value;
+        
+        // Update visual selection
+        document.querySelectorAll('.channel-type-option label').forEach(label => {
+            label.classList.remove('border-purple-500', 'border-indigo-500', 'border-blue-500', 'border-gray-500', 'bg-slate-700/50');
+        });
+        
+        const selectedLabel = this.nextElementSibling;
+        selectedLabel.classList.add('bg-slate-700/50');
+        
+        if (type === 'slack') {
+            selectedLabel.classList.add('border-purple-500');
+        } else if (type === 'discord') {
+            selectedLabel.classList.add('border-indigo-500');
+        } else if (type === 'email') {
+            selectedLabel.classList.add('border-blue-500');
+        } else {
+            selectedLabel.classList.add('border-gray-500');
+        }
+        
+        // Show/hide config sections
+        const webhookConfig = document.getElementById('webhookConfig');
+        const emailConfig = document.getElementById('emailConfig');
+        const slackInstructions = document.getElementById('slackInstructions');
+        const discordInstructions = document.getElementById('discordInstructions');
+        
+        webhookConfig.classList.add('hidden');
+        emailConfig.classList.add('hidden');
+        slackInstructions.classList.add('hidden');
+        discordInstructions.classList.add('hidden');
+        
+        if (type === 'email') {
+            emailConfig.classList.remove('hidden');
+            document.getElementById('recipients').required = true;
+            document.getElementById('webhook_url').required = false;
+        } else {
+            webhookConfig.classList.remove('hidden');
+            document.getElementById('webhook_url').required = true;
+            document.getElementById('recipients').required = false;
+            
+            if (type === 'slack') {
+                slackInstructions.classList.remove('hidden');
+            } else if (type === 'discord') {
+                discordInstructions.classList.remove('hidden');
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

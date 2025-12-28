@@ -1,0 +1,73 @@
+<!-- Stats Cards -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover animate-slide-in">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Total Events</p>
+            <p class="text-3xl font-bold text-white">{{ total_logs|default:0 }}</p>
+        </div>
+        <div class="w-12 h-12 gradient-bg rounded-lg flex items-center justify-center">
+            <i data-lucide="database" class="w-6 h-6 text-white"></i>
+        </div>
+    </div>
+    <div class="mt-4 flex items-center text-sm">
+        <span class="text-green-400 flex items-center">
+            <i data-lucide="trending-up" class="w-4 h-4 mr-1"></i>
+            Live
+        </span>
+        <span class="text-gray-500 ml-2">Last 24h</span>
+    </div>
+</div>
+
+<div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover animate-slide-in" style="animation-delay: 0.1s;">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Critical Threats</p>
+            <p class="text-3xl font-bold text-white">{{ critical_count|default:0 }}</p>
+        </div>
+        <div class="w-12 h-12 gradient-bg-red rounded-lg flex items-center justify-center">
+            <i data-lucide="alert-octagon" class="w-6 h-6 text-white"></i>
+        </div>
+    </div>
+    <div class="mt-4 flex items-center text-sm">
+        <span class="text-red-400 flex items-center">
+            <i data-lucide="shield-alert" class="w-4 h-4 mr-1"></i>
+            High priority
+        </span>
+    </div>
+</div>
+
+<div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover animate-slide-in" style="animation-delay: 0.2s;">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Blocked Requests</p>
+            <p class="text-3xl font-bold text-white">{{ blocked_count|default:0 }}</p>
+        </div>
+        <div class="w-12 h-12 gradient-bg-yellow rounded-lg flex items-center justify-center">
+            <i data-lucide="shield-off" class="w-6 h-6 text-white"></i>
+        </div>
+    </div>
+    <div class="mt-4 flex items-center text-sm">
+        <span class="text-yellow-400 flex items-center">
+            <i data-lucide="shield-check" class="w-4 h-4 mr-1"></i>
+            Protected
+        </span>
+    </div>
+</div>
+
+<div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover animate-slide-in" style="animation-delay: 0.3s;">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Unique IPs</p>
+            <p class="text-3xl font-bold text-white">{{ unique_ips|default:0 }}</p>
+        </div>
+        <div class="w-12 h-12 gradient-bg-green rounded-lg flex items-center justify-center">
+            <i data-lucide="users" class="w-6 h-6 text-white"></i>
+        </div>
+    </div>
+    <div class="mt-4 flex items-center text-sm">
+        <span class="text-green-400 flex items-center">
+            <i data-lucide="globe" class="w-4 h-4 mr-1"></i>
+            Tracked
+        </span>
+    </div>
+</div>

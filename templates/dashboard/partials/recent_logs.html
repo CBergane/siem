@@ -1,0 +1,109 @@
+<div class="space-y-2">
+{% for log in recent_logs %}
+<div class="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-all group animate-fade-in">
+    <!-- Left: Icon, IP, Action -->
+    <div class="flex items-center space-x-3 flex-1">
+        <!-- Severity Icon -->
+        {% if log.severity == 'critical' %}
+        <div class="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400"></i>
+        </div>
+        {% elif log.severity == 'high' %}
+        <div class="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <i data-lucide="alert-circle" class="w-4 h-4 text-orange-400"></i>
+        </div>
+        {% elif log.severity == 'medium' %}
+        <div class="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <i data-lucide="info" class="w-4 h-4 text-yellow-400"></i>
+        </div>
+        {% else %}
+        <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <i data-lucide="check-circle" class="w-4 h-4 text-blue-400"></i>
+        </div>
+        {% endif %}
+        
+        <!-- IP Address + Country + Server -->
+        <div class="min-w-0 flex-1 max-w-md">
+            <div class="flex items-center space-x-2 flex-wrap">
+                <p class="font-mono text-sm text-gray-200">{{ log.src_ip }}</p>
+                {% if log.geo_enriched %}
+                <span class="text-lg" title="{{ log.country_name }} - {{ log.city }}">{{ log.country_flag_emoji }}</span>
+                {% endif %}
+                {% if log.source_host and log.source_host != 'unknown' %}
+                <span class="px-2 py-0.5 bg-slate-600/50 border border-slate-500 rounded text-gray-300 text-xs font-medium">
+                    <i data-lucide="server" class="w-3 h-3 inline mr-0.5"></i>
+                    {{ log.source_host }}
+                </span>
+                {% endif %}
+            </div>
+            <p class="text-xs text-gray-500 truncate">
+                {% if log.geo_enriched %}
+                    {{ log.city|default:"Unknown" }}, {{ log.country_name|default:"Unknown" }}
+                {% else %}
+                    {% if log.path %}{{ log.path }}{% else %}{{ log.reason|default:"No details" }}{% endif %}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    <!-- Middle: Source & Action Badges -->
+    <div class="flex items-center space-x-2 mx-4">
+        <!-- Source Badge -->
+        {% if log.source_type == 'haproxy' %}
+        <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs font-semibold whitespace-nowrap">
+            HAProxy
+        </span>
+        {% elif log.source_type == 'nginx' %}
+        <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-semibold whitespace-nowrap">
+            Nginx
+        </span>
+        {% elif log.source_type == 'crowdsec' %}
+        <span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs font-semibold whitespace-nowrap">
+            CrowdSec
+        </span>
+        {% elif log.source_type == 'fail2ban' %}
+        <span class="px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-xs font-semibold whitespace-nowrap">
+            Fail2ban
+        </span>
+        {% endif %}
+        
+        <!-- Action Badge -->
+        {% if log.action == 'allow' %}
+        <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-semibold whitespace-nowrap">
+            <i data-lucide="check" class="w-3 h-3 inline"></i> Allow
+        </span>
+        {% elif log.action == 'deny' %}
+        <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs font-semibold whitespace-nowrap">
+            <i data-lucide="x" class="w-3 h-3 inline"></i> Deny
+        </span>
+        {% elif log.action == 'ban' %}
+        <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs font-semibold whitespace-nowrap">
+            <i data-lucide="shield-off" class="w-3 h-3 inline"></i> Ban
+        </span>
+        {% elif log.action == 'rate_limit' %}
+        <span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-xs font-semibold whitespace-nowrap">
+            <i data-lucide="zap" class="w-3 h-3 inline"></i> Rate Limit
+        </span>
+        {% elif log.action == 'challenge' %}
+        <span class="px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-xs font-semibold whitespace-nowrap">
+            <i data-lucide="help-circle" class="w-3 h-3 inline"></i> Challenge
+        </span>
+        {% endif %}
+    </div>
+    
+    <!-- Right: Timestamp -->
+    <div class="text-right flex-shrink-0">
+        <p class="text-xs text-gray-400">{{ log.timestamp|date:"H:i:s" }}</p>
+        <p class="text-xs text-gray-600">{{ log.timestamp|date:"M d" }}</p>
+    </div>
+</div>
+{% empty %}
+<div class="text-center py-12">
+    <div class="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="inbox" class="w-8 h-8 text-gray-500"></i>
+    </div>
+    <p class="text-gray-400 text-sm">No events yet</p>
+    <p class="text-gray-600 text-xs mt-1">Logs will appear here as they are ingested</p>
+</div>
+{% endfor %}
+</div>

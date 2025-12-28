@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom animations */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-in { animation: slide-in 0.3s ease-out; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+@layer base {
+  :root{
+    --neon-green: #00ff88;
+    --neon-blue: #00a8ff;
+    --cyber-bg: rgba(10,14,26,0.80);
+    --cyber-border: rgba(0,255,136,0.20);
+    --cyber-glow: rgba(0,255,136,0.20);
+  }
+
+  /* Matcha login-input globalt (utan checkbox/radio/file) */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  textarea,
+  select {
+    background: var(--cyber-bg);
+    border: 1px solid var(--cyber-border);
+    color: rgb(241 245 249); /* slate-100 */
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+    outline: none;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"])::placeholder,
+  textarea::placeholder {
+    color: rgb(148 163 184); /* slate-400 */
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+  textarea:focus,
+  select:focus {
+    border-color: var(--neon-green);
+    box-shadow:
+      0 0 0 1px rgba(0,255,136,0.35),
+      0 0 20px var(--cyber-glow);
+  }
+
+  input:disabled, textarea:disabled, select:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+  }
+
+  /* Django forms: help + errors */
+  .helptext { @apply mt-1 block text-xs text-slate-400; }
+  ul.errorlist { @apply mt-2 space-y-1; }
+  ul.errorlist > li { @apply text-sm text-red-400; }
+}
+
+@layer components {
+  /* Loginens neon-border som återanvändbar klass */
+  .neon-border {
+    position: relative;
+    background: linear-gradient(135deg, #0f1923 0%, #0a0e1a 100%);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+  }
+  .neon-border::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(45deg, var(--neon-green), var(--neon-blue), var(--neon-green), var(--neon-blue));
+    border-radius: 0.5rem;
+    opacity: 0;
+    z-index: -1;
+    transition: opacity 0.3s;
+    animation: neon-pulse 3s linear infinite;
+    background-size: 400% 400%;
+  }
+  .neon-border:hover::before,
+  .neon-border:focus-within::before { opacity: 0.5; }
+
+  @keyframes neon-pulse {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* Om du vill kunna använda exakt samma klasser som i login */
+  .cyber-input { /* samma som base, men explicit */
+    background: var(--cyber-bg);
+    border: 1px solid var(--cyber-border);
+  }
+  .cyber-input:focus {
+    border-color: var(--neon-green);
+    box-shadow: 0 0 20px var(--cyber-glow);
+    outline: none;
+  }
+
+  .cyber-button {
+    background: linear-gradient(135deg, var(--neon-green) 0%, var(--neon-blue) 100%);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+  .cyber-button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    left: -100%;
+    width: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent);
+    transition: left .5s;
+  }
+  .cyber-button:hover::before { left: 100%; }
+  .cyber-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 255, 136, 0.5);
+  }
+}

@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Create Alert Rule - Firewall Report Center{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- Header -->
+    <div>
+        <a href="{% url 'alerts:alert_rules_list' %}" class="text-blue-400 hover:text-blue-300 text-sm flex items-center space-x-1 mb-4">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Back to Alert Rules</span>
+        </a>
+        <h1 class="text-3xl font-bold text-white mb-2">Create Alert Rule</h1>
+        <p class="text-gray-400">Configure automatic alerts for {{ organization.name }}</p>
+    </div>
+    
+    <!-- Form -->
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Basic Information -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-white mb-4">Basic Information</h3>
+            
+            <div class="space-y-4">
+                <!-- Name -->
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-300 mb-2">
+                        Rule Name <span class="text-red-400">*</span>
+                    </label>
+                    <input type="text" 
+                           name="name" 
+                           id="name" 
+                           required
+                           placeholder="e.g., SSH Brute Force Detection"
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <!-- Description -->
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-300 mb-2">
+                        Description
+                    </label>
+                    <textarea name="description" 
+                              id="description" 
+                              rows="2"
+                              placeholder="Describe what this rule detects..."
+                              class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Condition -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-white mb-4">Condition</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Condition Type -->
+                <div>
+                    <label for="condition_type" class="block text-sm font-medium text-gray-300 mb-2">
+                        Type
+                    </label>
+                    <select name="condition_type" 
+                            id="condition_type"
+                            class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="count">Event Count</option>
+                        <option value="threshold">Threshold</option>
+                        <option value="spike">Spike Detection</option>
+                        <option value="pattern">Pattern Match</option>
+                    </select>
+                </div>
+                
+                <!-- Threshold -->
+                <div>
+                    <label for="threshold" class="block text-sm font-medium text-gray-300 mb-2">
+                        Threshold <span class="text-red-400">*</span>
+                    </label>
+                    <input type="number" 
+                           name="threshold" 
+                           id="threshold" 
+                           value="10"
+                           min="1"
+                           required
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 mt-1">Number of events to trigger</p>
+                </div>
+                
+                <!-- Time Window -->
+                <div>
+                    <label for="time_window_minutes" class="block text-sm font-medium text-gray-300 mb-2">
+                        Time Window (min) <span class="text-red-400">*</span>
+                    </label>
+                    <input type="number" 
+                           name="time_window_minutes" 
+                           id="time_window_minutes" 
+                           value="5"
+                           min="1"
+                           required
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 mt-1">Time window in minutes</p>
+                </div>
+            </div>
+            
+            <!-- Condition Summary -->
+            <div class="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <p class="text-sm text-blue-200">
+                    <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                    Alert when <strong id="conditionSummary">more than 10 events occur within 5 minutes</strong>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-white mb-2">Filters</h3>
+            <p class="text-sm text-gray-400 mb-4">Leave empty to match all values</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Source Type -->
+                <div>
+                    <label for="source_type" class="block text-sm font-medium text-gray-300 mb-2">
+                        Source Type
+                    </label>
+                    <select name="source_type" 
+                            id="source_type"
+                            class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">All Sources</option>
+                        {% for source in source_types %}
+                        <option value="{{ source }}">{{ source|title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Action -->
+                <div>
+                    <label for="action" class="block text-sm font-medium text-gray-300 mb-2">
+                        Action
+                    </label>
+                    <select name="action" 
+                            id="action"
+                            class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">All Actions</option>
+                        {% for act in actions %}
+                        <option value="{{ act }}">{{ act|title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Severity -->
+                <div>
+                    <label for="severity" class="block text-sm font-medium text-gray-300 mb-2">
+                        Severity
+                    </label>
+                    <select name="severity" 
+                            id="severity"
+                            class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">All Severities</option>
+                        {% for sev in severities %}
+                        <option value="{{ sev }}">{{ sev|title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Country -->
+                <div>
+                    <label for="country_code" class="block text-sm font-medium text-gray-300 mb-2">
+                        Country
+                    </label>
+                    <select name="country_code" 
+                            id="country_code"
+                            class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">All Countries</option>
+                        {% for country in countries %}
+                        <option value="{{ country.country_code }}">{{ country.country_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- IP Address -->
+                <div class="md:col-span-2">
+                    <label for="ip_address" class="block text-sm font-medium text-gray-300 mb-2">
+                        Specific IP Address
+                    </label>
+                    <input type="text" 
+                           name="ip_address" 
+                           id="ip_address"
+                           placeholder="192.168.1.1"
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 mt-1">Optional: Monitor a specific IP address</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notifications -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-white mb-2">Notification Channels</h3>
+            <p class="text-sm text-gray-400 mb-4">Select where to send alerts</p>
+            
+            {% if channels %}
+            <div class="space-y-3">
+                {% for channel in channels %}
+                <label class="flex items-center p-3 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-700 transition-colors">
+                    <input type="checkbox" 
+                           name="notification_channels" 
+                           value="{{ channel.id }}"
+                           class="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2">
+                    <div class="ml-3 flex items-center space-x-3 flex-1">
+                        <div class="w-8 h-8 rounded flex items-center justify-center
+                                    {% if channel.channel_type == 'slack' %}bg-purple-500/20{% elif channel.channel_type == 'discord' %}bg-indigo-500/20{% elif channel.channel_type == 'email' %}bg-blue-500/20{% else %}bg-gray-500/20{% endif %}">
+                            {% if channel.channel_type == 'slack' %}
+                            <i data-lucide="hash" class="w-4 h-4 text-purple-400"></i>
+                            {% elif channel.channel_type == 'discord' %}
+                            <i data-lucide="message-circle" class="w-4 h-4 text-indigo-400"></i>
+                            {% elif channel.channel_type == 'email' %}
+                            <i data-lucide="mail" class="w-4 h-4 text-blue-400"></i>
+                            {% else %}
+                            <i data-lucide="link" class="w-4 h-4 text-gray-400"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-white">{{ channel.name }}</p>
+                            <p class="text-xs text-gray-500">{{ channel.get_channel_type_display }}</p>
+                        </div>
+                    </div>
+                    {% if channel.verified %}
+                    <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-semibold">
+                        <i data-lucide="check-circle" class="w-3 h-3 inline"></i>
+                        Verified
+                    </span>
+                    {% endif %}
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <p class="text-sm text-yellow-200">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>
+                    No notification channels configured. <a href="{% url 'alerts:integrations_list' %}" class="underline">Add one first</a>.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Advanced Settings -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h3 class="text-lg font-semibold text-white mb-4">Advanced Settings</h3>
+            
+            <div>
+                <label for="cooldown_minutes" class="block text-sm font-medium text-gray-300 mb-2">
+                    Cooldown Period (minutes)
+                </label>
+                <input type="number" 
+                       name="cooldown_minutes" 
+                       id="cooldown_minutes" 
+                       value="15"
+                       min="1"
+                       class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Minimum time between alerts to prevent spam</p>
+            </div>
+        </div>
+        
+        <!-- Submit Buttons -->
+        <div class="flex items-center space-x-3 pt-4">
+            <button type="submit" 
+                    class="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2 text-base font-medium">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                <span>Create Alert Rule</span>
+            </button>
+            <a href="{% url 'alerts:alert_rules_list' %}" 
+               class="px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors text-base font-medium">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Update condition summary dynamically
+function updateConditionSummary() {
+    const threshold = document.getElementById('threshold').value;
+    const timeWindow = document.getElementById('time_window_minutes').value;
+    const conditionType = document.getElementById('condition_type').value;
+    
+    let summary = '';
+    
+    if (conditionType === 'count') {
+        summary = `more than ${threshold} events occur within ${timeWindow} minutes`;
+    } else if (conditionType === 'threshold') {
+        summary = `threshold of ${threshold} is exceeded within ${timeWindow} minutes`;
+    } else if (conditionType === 'spike') {
+        summary = `spike of ${threshold}% is detected within ${timeWindow} minutes`;
+    } else {
+        summary = `pattern is matched ${threshold} times within ${timeWindow} minutes`;
+    }
+    
+    document.getElementById('conditionSummary').textContent = summary;
+}
+
+document.getElementById('threshold').addEventListener('input', updateConditionSummary);
+document.getElementById('time_window_minutes').addEventListener('input', updateConditionSummary);
+document.getElementById('condition_type').addEventListener('change', updateConditionSummary);
+</script>
+{% endblock %}

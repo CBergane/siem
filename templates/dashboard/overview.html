@@ -1,0 +1,788 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Firewall Report Center{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between animate-slide-in mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2">Security Dashboard</h1>
+            <p class="text-gray-400">
+                Real-time security insights • Last {{ time_range_hours }} hours
+                {% if current_server_display %}
+                • Server: <span class="font-semibold text-white">{{ current_server_display }}</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex items-center space-x-4">
+            <!-- Server Filter -->
+            {% if servers %}
+                <form method="get" class="flex items-center space-x-2">
+                    <label class="text-sm text-gray-400">
+                        <i data-lucide="server" class="w-4 h-4 inline"></i> Server:
+                    </label>
+
+                    <select name="server"
+                            onchange="window.location.href='?server=' + encodeURIComponent(this.value)"
+                            class="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Servers</option>
+
+                        {% for server in servers %}
+                        <option value="{{ server.original_hostname }}"
+                                {% if current_server == server.original_hostname %}selected{% endif %}>
+                            {{ server.display_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </form>
+
+                {% if current_server %}
+                <a href="{% url 'dashboard:overview' %}"
+                class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg transition-colors text-sm">
+                    <i data-lucide="x" class="w-4 h-4 inline"></i> Clear
+                </a>
+                {% endif %}
+                {% endif %}
+
+            
+            <!-- Live indicator -->
+            <div class="flex items-center space-x-2 text-sm text-gray-400">
+                <div class="animate-pulse-soft">
+                    <span class="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                </div>
+                <span>Live</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Cards - Auto-refresh every 10 seconds -->
+    <div hx-get="{% url 'dashboard:stats_partial' %}"
+         hx-trigger="load, every 10s"
+         hx-swap="innerHTML"
+         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Stats will be loaded here -->
+        <div class="col-span-4 text-center py-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <p class="text-gray-400 mt-2">Loading stats...</p>
+        </div>
+    </div>
+    
+    <!-- Geographic Map & Country Stats -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-in" style="animation-delay: 0.1s;">
+        <!-- World Map -->
+        <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-white flex items-center">
+                    <i data-lucide="map" class="w-5 h-5 mr-2 text-blue-400"></i>
+                    Global Attack Map
+                    <span id="mapStatus" class="ml-3 text-xs text-gray-500"></span>
+                </h3>
+                <div class="flex items-center space-x-2">
+                    <button onclick="loadMapData(24)" data-map-hours="24" class="map-btn px-3 py-1 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors active">
+                        24h
+                    </button>
+                    <button onclick="loadMapData(72)" data-map-hours="72" class="map-btn px-3 py-1 text-xs rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">
+                        3d
+                    </button>
+                    <button onclick="loadMapData(168)" data-map-hours="168" class="map-btn px-3 py-1 text-xs rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">
+                        7d
+                    </button>
+                </div>
+            </div>
+            <!-- Color Legend -->
+            <div class="flex items-center justify-center space-x-4 mb-3 text-xs">
+                <div class="flex items-center space-x-1">
+                    <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span class="text-gray-400">Low</span>
+                </div>
+                <div class="flex items-center space-x-1">
+                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <span class="text-gray-400">Medium</span>
+                </div>
+                <div class="flex items-center space-x-1">
+                    <div class="w-3 h-3 rounded-full bg-orange-500"></div>
+                    <span class="text-gray-400">High</span>
+                </div>
+                <div class="flex items-center space-x-1">
+                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span class="text-gray-400">Critical</span>
+                </div>
+            </div>
+            <div id="worldMap" style="height: 400px; border-radius: 0.5rem; overflow: hidden;"></div>
+        </div>
+        
+        <!-- Top Countries -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover flex flex-col">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                <i data-lucide="globe" class="w-5 h-5 mr-2 text-purple-400"></i>
+                Top Countries
+            </h3>
+            <div id="topCountries" class="space-y-3 flex-1 overflow-y-auto" style="max-height: 400px;">
+                <div class="text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+                    <p class="text-gray-400 text-sm mt-2">Loading countries...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ISP/ASN Stats -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover animate-slide-in" style="animation-delay: 0.15s;">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white flex items-center">
+                <i data-lucide="server" class="w-5 h-5 mr-2 text-cyan-400"></i>
+                Top Hosting Providers / ISPs
+                <span id="ispStatus" class="ml-3 text-xs text-gray-500"></span>
+            </h3>
+            <div class="flex items-center space-x-2">
+                <button onclick="loadISPData(24)" data-isp-hours="24" class="isp-btn px-3 py-1 text-xs rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 transition-colors active">
+                    24h
+                </button>
+                <button onclick="loadISPData(72)" data-isp-hours="72" class="isp-btn px-3 py-1 text-xs rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">
+                    3d
+                </button>
+                <button onclick="loadISPData(168)" data-isp-hours="168" class="isp-btn px-3 py-1 text-xs rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">
+                    7d
+                </button>
+            </div>
+        </div>
+        <div id="ispChart" style="height: 300px;">
+            <canvas id="ispChartCanvas"></canvas>
+        </div>
+    </div>
+    
+    <!-- Timeline Chart - Full Width -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover animate-slide-in" style="animation-delay: 0.2s;">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold text-white flex items-center">
+                <i data-lucide="trending-up" class="w-5 h-5 mr-2 text-green-400"></i>
+                Attack Timeline
+                <span id="timelineStatus" class="ml-3 text-xs text-gray-500"></span>
+            </h3>
+            <div class="flex items-center space-x-2">
+                <button onclick="loadTimeline(1)" data-hours="1" class="timeline-btn px-3 py-1 text-xs rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">
+                    1h
+                </button>
+                <button onclick="loadTimeline(6)" data-hours="6" class="timeline-btn px-3 py-1 text-xs rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">
+                    6h
+                </button>
+                <button onclick="loadTimeline(24)" data-hours="24" class="timeline-btn px-3 py-1 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors active">
+                    24h
+                </button>
+                <button onclick="loadTimeline(72)" data-hours="72" class="timeline-btn px-3 py-1 text-xs rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">
+                    3d
+                </button>
+                <button onclick="loadTimeline(168)" data-hours="168" class="timeline-btn px-3 py-1 text-xs rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">
+                    7d
+                </button>
+                <button onclick="refreshTimeline()" class="px-3 py-1 text-xs rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors ml-2">
+                    <i data-lucide="refresh-cw" class="w-3 h-3 inline"></i>
+                </button>
+            </div>
+        </div>
+        <div style="height: 300px;">
+            <canvas id="timelineChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-slide-in" style="animation-delay: 0.3s;">
+        <!-- Source Distribution -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                <i data-lucide="pie-chart" class="w-5 h-5 mr-2 text-blue-400"></i>
+                Logs by Source
+            </h3>
+            <div class="h-64">
+                <canvas id="sourceChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Action Distribution -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                <i data-lucide="activity" class="w-5 h-5 mr-2 text-purple-400"></i>
+                Actions Distribution
+            </h3>
+            <div class="h-64">
+                <canvas id="actionChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Attackers & Recent Logs -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Top Attackers -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover animate-slide-in flex flex-col" style="animation-delay: 0.4s;">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                <i data-lucide="alert-triangle" class="w-5 h-5 mr-2 text-red-400"></i>
+                Top Attackers
+            </h3>
+            <div class="space-y-3 flex-1 overflow-y-auto" style="max-height: 500px;">
+                {% for ip in top_ips %}
+                <div class="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center">
+                            <i data-lucide="globe" class="w-4 h-4 text-red-400"></i>
+                        </div>
+                        <span class="font-mono text-sm text-gray-200">{{ ip.src_ip }}</span>
+                    </div>
+                    <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs font-semibold">
+                        {{ ip.count }} hits
+                    </span>
+                </div>
+                {% empty %}
+                <p class="text-gray-400 text-sm text-center py-4">No data yet</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Recent Logs - Auto-refresh every 5 seconds -->
+        <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover animate-slide-in flex flex-col" style="animation-delay: 0.5s;">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                <i data-lucide="clock" class="w-5 h-5 mr-2 text-green-400"></i>
+                Recent Events
+                <span class="ml-auto text-xs text-gray-400">Auto-refresh 5s</span>
+            </h3>
+            
+            <div hx-get="{% url 'dashboard:recent_logs_partial' %}"
+                 hx-trigger="load, every 5s"
+                 hx-swap="innerHTML"
+                 class="space-y-2 flex-1 overflow-y-auto"
+                 style="max-height: 500px;">
+                <!-- Recent logs will load here -->
+                <div class="text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+                    <p class="text-gray-400 text-sm mt-2">Loading recent events...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Chart.js default config
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = '#334155';
+    
+    // ========================================
+    // WORLD MAP
+    // ========================================
+    let worldMap = null;
+    let markersLayer = null;
+    let currentMapHours = 24;
+    
+    function initMap() {
+        worldMap = L.map('worldMap', {
+            center: [20, 0],
+            zoom: 2,
+            minZoom: 2,
+            maxZoom: 10,
+            worldCopyJump: true
+        });
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(worldMap);
+        
+        markersLayer = L.layerGroup().addTo(worldMap);
+        loadMapData(24);
+    }
+    
+    function setActiveMapButton(hours) {
+        document.querySelectorAll('.map-btn').forEach(btn => {
+            btn.classList.remove('bg-blue-600', 'text-white', 'active');
+            btn.classList.add('bg-slate-700', 'text-gray-300');
+        });
+        
+        const activeBtn = document.querySelector(`.map-btn[data-map-hours="${hours}"]`);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-slate-700', 'text-gray-300');
+            activeBtn.classList.add('bg-blue-600', 'text-white', 'active');
+        }
+    }
+    
+    function loadMapData(hours) {
+        currentMapHours = hours;
+        setActiveMapButton(hours);
+        
+        const statusEl = document.getElementById('mapStatus');
+        statusEl.textContent = 'Loading...';
+        
+        // GET SERVER FILTER
+        const urlParams = new URLSearchParams(window.location.search);
+        const serverFilter = urlParams.get('server') || '';
+        
+        fetch(`{% url 'dashboard:geographic_data' %}?hours=${hours}&server=${serverFilter}`)
+            .then(response => response.json())
+            .then(data => {
+                markersLayer.clearLayers();
+                statusEl.textContent = `(${data.total_attacks} attacks from ${data.total_countries} countries)`;
+                
+                data.markers.forEach(marker => {
+                    const baseSize = 8;
+                    const maxAttacks = Math.max(...data.markers.map(m => m.count));
+                    const relativeSize = (marker.count / maxAttacks);
+                    const size = baseSize + (relativeSize * 15);
+                    
+                    const circle = L.circleMarker([marker.lat, marker.lon], {
+                        radius: size,
+                        fillColor: marker.color,
+                        color: marker.color,
+                        weight: 2,
+                        opacity: 0.9,
+                        fillOpacity: 0.6
+                    });
+                    
+                    circle.bindPopup(`
+                        <div class="text-center p-2">
+                            <div class="text-3xl mb-2">${marker.flag}</div>
+                            <div class="font-bold text-base text-gray-900">${marker.country_name}</div>
+                            <div class="text-sm text-gray-700 mt-1"><strong>${marker.count}</strong> attacks</div>
+                            <div class="text-xs text-gray-500 mt-1">${marker.country_code}</div>
+                        </div>
+                    `);
+                    
+                    circle.bindTooltip(`${marker.flag} ${marker.country_name}: ${marker.count}`, {
+                        permanent: false,
+                        direction: 'top',
+                        offset: [0, -10]
+                    });
+                    
+                    circle.addTo(markersLayer);
+                });
+                
+                updateTopCountries(data.top_countries);
+            })
+            .catch(error => {
+                console.error('Error loading map data:', error);
+                statusEl.textContent = '(Error loading data)';
+            });
+    }
+    
+    function updateTopCountries(countries) {
+        const container = document.getElementById('topCountries');
+        
+        if (countries.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8">
+                    <p class="text-gray-400 text-sm">No geographic data yet</p>
+                    <p class="text-gray-600 text-xs mt-1">Generate logs with public IPs</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        countries.forEach((country, index) => {
+            const flag = country.country_code && country.country_code.length === 2 
+                ? String.fromCodePoint(0x1F1E6 + country.country_code.charCodeAt(0) - 65) + 
+                  String.fromCodePoint(0x1F1E6 + country.country_code.charCodeAt(1) - 65)
+                : '🌍';
+            
+            let colorClass = 'bg-blue-500/20 text-blue-400';
+            if (index === 0) colorClass = 'bg-red-500/20 text-red-400';
+            else if (index === 1) colorClass = 'bg-orange-500/20 text-orange-400';
+            else if (index === 2) colorClass = 'bg-yellow-500/20 text-yellow-400';
+            
+            html += `
+                <div class="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
+                    <div class="flex items-center space-x-3 flex-1">
+                        <span class="text-2xl">${flag}</span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-200 truncate">${country.country_name}</p>
+                            <p class="text-xs text-gray-500">${country.country_code}</p>
+                        </div>
+                    </div>
+                    <span class="px-2 py-1 ${colorClass} rounded text-xs font-semibold whitespace-nowrap ml-2">
+                        ${country.count}
+                    </span>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        initMap();
+        setInterval(() => loadMapData(currentMapHours), 30000);
+    });
+    
+    // ========================================
+    // ISP/ASN CHART
+    // ========================================
+    let ispChart = null;
+    let currentISPHours = 24;
+    
+    function setActiveISPButton(hours) {
+        document.querySelectorAll('.isp-btn').forEach(btn => {
+            btn.classList.remove('bg-cyan-600', 'text-white', 'active');
+            btn.classList.add('bg-slate-700', 'text-gray-300');
+        });
+        
+        const activeBtn = document.querySelector(`.isp-btn[data-isp-hours="${hours}"]`);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-slate-700', 'text-gray-300');
+            activeBtn.classList.add('bg-cyan-600', 'text-white', 'active');
+        }
+    }
+    
+    function loadISPData(hours) {
+        currentISPHours = hours;
+        setActiveISPButton(hours);
+        
+        const statusEl = document.getElementById('ispStatus');
+        statusEl.textContent = 'Loading...';
+        
+        // GET SERVER FILTER
+        const urlParams = new URLSearchParams(window.location.search);
+        const serverFilter = urlParams.get('server') || '';
+        
+        fetch(`{% url 'dashboard:isp_stats_data' %}?hours=${hours}&server=${serverFilter}`)
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('ispChartCanvas').getContext('2d');
+                
+                if (ispChart) {
+                    ispChart.destroy();
+                }
+                
+                statusEl.textContent = `(${data.total_with_isp} attacks tracked)`;
+                
+                // Prepare data
+                const labels = data.top_isps.map(isp => {
+                    const name = isp.isp.length > 30 ? isp.isp.substring(0, 27) + '...' : isp.isp;
+                    return isp.asn ? `${name} (${isp.asn})` : name;
+                });
+                const counts = data.top_isps.map(isp => isp.count);
+                
+                // Create gradient colors
+                const colors = labels.map((_, index) => {
+                    const intensity = 1 - (index / labels.length);
+                    return `rgba(34, 211, 238, ${0.4 + (intensity * 0.4)})`;
+                });
+                const borderColors = labels.map((_, index) => {
+                    const intensity = 1 - (index / labels.length);
+                    return `rgba(34, 211, 238, ${0.6 + (intensity * 0.4)})`;
+                });
+                
+                ispChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Attacks',
+                            data: counts,
+                            backgroundColor: colors,
+                            borderColor: borderColors,
+                            borderWidth: 2,
+                            borderRadius: 6,
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                padding: 12,
+                                titleColor: '#fff',
+                                bodyColor: '#cbd5e1',
+                                borderColor: '#334155',
+                                borderWidth: 1
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: '#334155'
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                console.log(`ISP stats loaded: ${hours}h, ${data.top_isps.length} ISPs`);
+            })
+            .catch(error => {
+                console.error('Error loading ISP data:', error);
+                statusEl.textContent = '(Error loading data)';
+            });
+    }
+    
+    // Load ISP chart on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadISPData(24);
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => loadISPData(currentISPHours), 30000);
+    });
+    
+    // ========================================
+    // TIMELINE CHART
+    // ========================================
+    let timelineChart = null;
+    let currentTimelineHours = 24;
+    
+    function setActiveButton(hours) {
+        document.querySelectorAll('.timeline-btn').forEach(btn => {
+            btn.classList.remove('bg-blue-600', 'text-white', 'active');
+            btn.classList.add('bg-slate-700', 'text-gray-300');
+        });
+        
+        const activeBtn = document.querySelector(`.timeline-btn[data-hours="${hours}"]`);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-slate-700', 'text-gray-300');
+            activeBtn.classList.add('bg-blue-600', 'text-white', 'active');
+        }
+    }
+        
+    function loadTimeline(hours) {
+    currentTimelineHours = hours;
+    setActiveButton(hours);
+
+    const statusEl = document.getElementById('timelineStatus');
+    statusEl.textContent = 'Loading...';
+
+    // GET SERVER FILTER FROM URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const serverFilter = urlParams.get('server') || '';
+
+    fetch(`{% url 'dashboard:timeline_data' %}?hours=${hours}&server=${encodeURIComponent(serverFilter)}`)
+        .then(response => response.json())
+        .then(data => {
+        const ctx = document.getElementById('timelineChart').getContext('2d');
+
+        if (timelineChart) {
+            timelineChart.destroy();
+        }
+
+        const totalLogs = (data.total || []).reduce((a, b) => a + b, 0);
+
+        // Make it feel "live"
+        const updatedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        if (totalLogs === 0) {
+            statusEl.textContent = `(No data for last ${hours}h • updated ${updatedAt})`;
+        } else {
+            statusEl.textContent = `(${totalLogs} events • updated ${updatedAt})`;
+        }
+
+        // Dynamic ticks (more labels for 24h etc.)
+        const maxTicks =
+            (hours <= 1) ? 12 :
+            (hours <= 6) ? 12 :
+            (hours <= 24) ? 24 :
+            12;
+
+        timelineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+            labels: data.labels || [],
+            datasets: [
+                {
+                label: 'Critical',
+                data: data.by_severity?.critical || [],
+                borderColor: 'rgba(239, 68, 68, 1)',
+                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+                },
+                {
+                label: 'High',
+                data: data.by_severity?.high || [],
+                borderColor: 'rgba(249, 115, 22, 1)',
+                backgroundColor: 'rgba(249, 115, 22, 0.2)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+                },
+                {
+                label: 'Medium',
+                data: data.by_severity?.medium || [],
+                borderColor: 'rgba(234, 179, 8, 1)',
+                backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+                },
+                {
+                label: 'Low',
+                data: data.by_severity?.low || [],
+                borderColor: 'rgba(59, 130, 246, 1)',
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+                }
+            ]
+            },
+            options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                position: 'top',
+                labels: { padding: 15, usePointStyle: true, font: { size: 12 } }
+                },
+                tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                padding: 12,
+                titleColor: '#fff',
+                bodyColor: '#cbd5e1',
+                borderColor: '#334155',
+                borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                grid: { display: false },
+                ticks: {
+                    autoSkip: true,
+                    maxTicksLimit: maxTicks,
+                    maxRotation: 0
+                }
+                },
+                y: {
+                stacked: true,
+                beginAtZero: true,
+                grid: { color: '#334155' }
+                }
+            }
+            }
+        });
+        })
+        .catch(error => {
+        console.error('Error loading timeline:', error);
+        statusEl.textContent = '(Error loading data)';
+        });
+    }
+    
+    function refreshTimeline() {
+        loadTimeline(currentTimelineHours);
+    }
+    
+    loadTimeline(24);
+    setInterval(() => {
+        const refreshMs =
+            (currentTimelineHours <= 1) ? 5000 :
+            (currentTimelineHours <= 6) ? 10000 :
+            15000;
+        loadTimeline(currentTimelineHours);
+        }, 15000);
+    
+    // ========================================
+    // SOURCE & ACTION CHARTS
+    // ========================================
+    
+    const sourceCtx = document.getElementById('sourceChart').getContext('2d');
+    new Chart(sourceCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for stat in source_stats %}'{{ stat.source_type }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for stat in source_stats %}{{ stat.count }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                backgroundColor: [
+                    'rgba(59, 130, 246, 0.8)',
+                    'rgba(168, 85, 247, 0.8)',
+                    'rgba(236, 72, 153, 0.8)',
+                    'rgba(34, 197, 94, 0.8)',
+                ],
+                borderColor: [
+                    'rgba(59, 130, 246, 1)',
+                    'rgba(168, 85, 247, 1)',
+                    'rgba(236, 72, 153, 1)',
+                    'rgba(34, 197, 94, 1)',
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        font: {
+                            size: 12
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+const actionCtx = document.getElementById('actionChart').getContext('2d');
+
+  const actionLabels = [{% for stat in action_stats %}'{{ stat.action }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
+  const actionCounts = [{% for stat in action_stats %}{{ stat.count }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+
+  const actionColorMap = {
+    allow: { bg: 'rgba(34, 197, 94, 0.8)', border: 'rgba(34, 197, 94, 1)' },      // green
+    deny:  { bg: 'rgba(239, 68, 68, 0.8)', border: 'rgba(239, 68, 68, 1)' },      // red
+    ban:   { bg: 'rgba(249, 115, 22, 0.8)', border: 'rgba(249, 115, 22, 1)' },    // orange
+    rate_limit: { bg: 'rgba(234, 179, 8, 0.8)', border: 'rgba(234, 179, 8, 1)' }, // yellow
+  };
+
+  const fallback = { bg: 'rgba(148, 163, 184, 0.8)', border: 'rgba(148, 163, 184, 1)' }; // gray
+
+  const actionBgColors = actionLabels.map(a => (actionColorMap[a]?.bg ?? fallback.bg));
+  const actionBorderColors = actionLabels.map(a => (actionColorMap[a]?.border ?? fallback.border));
+
+  new Chart(actionCtx, {
+    type: 'bar',
+    data: {
+      labels: actionLabels,
+      datasets: [{
+        label: 'Count',
+        data: actionCounts,
+        backgroundColor: actionBgColors,
+        borderColor: actionBorderColors,
+        borderWidth: 2,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#334155' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+  </script>
+{% endblock %}

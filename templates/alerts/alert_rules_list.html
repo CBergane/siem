@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Alert Rules - Firewall Report Center{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2">Alert Rules</h1>
+            <p class="text-gray-400">Configure automatic alerts for security events</p>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">Active Rules</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ rules|length }}</p>
+                </div>
+                <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <i data-lucide="shield-check" class="w-6 h-6 text-green-400"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">Alerts Today</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ recent_alerts|length }}</p>
+                </div>
+                <div class="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                    <i data-lucide="bell" class="w-6 h-6 text-orange-400"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">Channels</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ user.organization_memberships.first.organization.notification_channels.count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <i data-lucide="send" class="w-6 h-6 text-blue-400"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if not rules %}
+    <!-- Empty State -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-12 text-center">
+        <div class="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="shield-alert" class="w-8 h-8 text-orange-400"></i>
+        </div>
+        <h3 class="text-xl font-semibold text-white mb-2">No Alert Rules Yet</h3>
+        <p class="text-gray-400 mb-6">Create your first alert rule to get notified about security events</p>
+        {% if request.user.organization_memberships.exists %}
+        <a href="{% url 'alerts:create_alert_rule' org_id=request.user.organization_memberships.first.organization.id %}" 
+           class="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+            Create Alert Rule
+        </a>
+        {% endif %}
+    </div>
+    {% else %}
+    
+    <!-- Alert Rules List -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-700 bg-slate-700/30 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-white">Alert Rules</h3>
+            {% if request.user.organization_memberships.exists %}
+            <a href="{% url 'alerts:create_alert_rule' org_id=request.user.organization_memberships.first.organization.id %}" 
+               class="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2 text-sm">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Create Rule</span>
+            </a>
+            {% endif %}
+        </div>
+        
+        <div class="divide-y divide-slate-700">
+            {% for rule in rules %}
+            <div class="px-6 py-4 hover:bg-slate-700/30 transition-colors">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4 flex-1">
+                        <!-- Status Icon -->
+                        <div class="w-12 h-12 rounded-lg flex items-center justify-center
+                                    {% if rule.enabled %}bg-green-500/20{% else %}bg-gray-500/20{% endif %}">
+                            <i data-lucide="{% if rule.enabled %}shield-check{% else %}shield-off{% endif %}" 
+                               class="w-6 h-6 {% if rule.enabled %}text-green-400{% else %}text-gray-400{% endif %}"></i>
+                        </div>
+                        
+                        <!-- Rule Details -->
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3">
+                                <h4 class="text-base font-semibold text-white">{{ rule.name }}</h4>
+                                {% if not rule.enabled %}
+                                <span class="px-2 py-1 bg-gray-500/20 text-gray-400 rounded text-xs font-semibold">
+                                    Disabled
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if rule.description %}
+                            <p class="text-sm text-gray-400 mt-1">{{ rule.description }}</p>
+                            {% endif %}
+                            
+                            <div class="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                                <span>
+                                    <i data-lucide="activity" class="w-3 h-3 inline mr-1"></i>
+                                    {{ rule.get_condition_type_display }}
+                                </span>
+                                <span>
+                                    <i data-lucide="target" class="w-3 h-3 inline mr-1"></i>
+                                    > {{ rule.threshold }} in {{ rule.time_window_minutes }}min
+                                </span>
+                                {% if rule.trigger_count > 0 %}
+                                <span class="text-orange-400">
+                                    <i data-lucide="bell" class="w-3 h-3 inline mr-1"></i>
+                                    Triggered {{ rule.trigger_count }}x
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex items-center space-x-2 ml-4">
+                        <form method="post" action="{% url 'alerts:toggle_alert_rule' rule.id %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" 
+                                    class="px-3 py-2 {% if rule.enabled %}bg-yellow-600 hover:bg-yellow-700{% else %}bg-green-600 hover:bg-green-700{% endif %} text-white rounded-lg transition-colors text-sm">
+                                {% if rule.enabled %}Disable{% else %}Enable{% endif %}
+                            </button>
+                        </form>
+                        
+                        <form method="post" action="{% url 'alerts:delete_alert_rule' rule.id %}" 
+                              onsubmit="return confirm('Are you sure you want to delete this alert rule?')" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" 
+                                    class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm">
+                                Delete
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    {% endif %}
+    
+    <!-- Recent Alerts -->
+    {% if recent_alerts %}
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-700 bg-slate-700/30 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-white">Recent Alerts</h3>
+            <a href="{% url 'alerts:alert_history' %}" class="text-sm text-blue-400 hover:text-blue-300">
+                View All →
+            </a>
+        </div>
+        
+        <div class="divide-y divide-slate-700">
+            {% for alert in recent_alerts %}
+            <div class="px-6 py-3 hover:bg-slate-700/30 transition-colors">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3 flex-1">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center
+                                    {% if alert.severity == 'critical' %}bg-red-500/20{% elif alert.severity == 'high' %}bg-orange-500/20{% elif alert.severity == 'medium' %}bg-yellow-500/20{% else %}bg-blue-500/20{% endif %}">
+                            <i data-lucide="alert-triangle" 
+                               class="w-4 h-4 {% if alert.severity == 'critical' %}text-red-400{% elif alert.severity == 'high' %}text-orange-400{% elif alert.severity == 'medium' %}text-yellow-400{% else %}text-blue-400{% endif %}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-white">{{ alert.alert_rule.name }}</p>
+                            <p class="text-xs text-gray-500">{{ alert.event_count }} events • {{ alert.triggered_at|timesince }} ago</p>
+                        </div>
+                    </div>
+                    <span class="px-2 py-1 {% if alert.severity == 'critical' %}bg-red-500/20 text-red-400{% elif alert.severity == 'high' %}bg-orange-500/20 text-orange-400{% elif alert.severity == 'medium' %}bg-yellow-500/20 text-yellow-400{% else %}bg-blue-500/20 text-blue-400{% endif %} rounded text-xs font-semibold">
+                        {{ alert.severity|upper }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
