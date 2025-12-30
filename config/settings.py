@@ -182,6 +182,12 @@ ACCOUNT_LOGOUT_REDIRECT_URL = '/'
 
 # Multi-tenant
 BASE_DOMAIN = env('BASE_DOMAIN', default='localhost')
+TIER_SERVER_LIMITS = {
+    "free": 2,
+    "starter": 5,
+    "professional": 8,
+    "enterprise": 9999,
+}
 
 # Feature Flags
 ENABLE_IP_INTEL = env.bool('ENABLE_IP_INTEL', default=False)

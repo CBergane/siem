@@ -1,3 +1,10 @@
 from django.contrib import admin
+from .models import JoinRequest
 
-# Register your models here.
+
+@admin.register(JoinRequest)
+class JoinRequestAdmin(admin.ModelAdmin):
+    list_display = ("email", "company", "status", "created_at")
+    list_filter = ("status",)
+    search_fields = ("email", "company", "full_name")
+    readonly_fields = ("ip_address", "user_agent", "created_at")

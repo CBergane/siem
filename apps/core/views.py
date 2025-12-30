@@ -4,19 +4,20 @@ import os
 import requests
 
 from datetime import timedelta
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
-from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.http import JsonResponse, HttpResponseForbidden
+from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.generic import TemplateView
 from django.core.cache import cache
 
 from apps.logs.models import SecurityLog, ServerAlias
-from apps.organizations.models import Organization, OrganizationMember
+from apps.organizations.models import APIKey, Agent, Organization, OrganizationMember
 
 from .forms import JoinRequestForm
 from .models import JoinRequest
@@ -28,7 +29,7 @@ def health_check(_request):
     return JsonResponse({"status": "ok"})
 
 def home(request):
-    return redirect("dashboard:overview") if request.user.is_authenticated else redirect("landing")
+    return redirect("landing")
 
 def _get_client_ip(request):
     xff = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -37,8 +38,11 @@ def _get_client_ip(request):
     return request.META.get("REMOTE_ADDR")
 
 def _notify_discord(join_req: JoinRequest):
-    webhook = os.getenv("REQUEST_JOIN", "").strip()
+    if os.getenv("ENABLE_DISCORD_NOTIFICATIONS", "").strip().lower() not in {"1", "true", "yes"}:
+        return
+    webhook = os.getenv("DISCORD_WEBHOOK_URL", "").strip()
     if not webhook:
+        logger.warning("Discord notifications enabled but DISCORD_WEBHOOK_URL is not set.")
         return
 
     content = (
@@ -51,9 +55,11 @@ def _notify_discord(join_req: JoinRequest):
     )
     # keep it simple; if it fails we just skip
     try:
-        requests.post(webhook, json={"content": content}, timeout=5).raise_for_status()
-    except Exception:
-        pass
+        response = requests.post(webhook, json={"content": content}, timeout=5)
+        if response.status_code >= 400:
+            logger.warning("Discord webhook failed with status %s", response.status_code)
+    except Exception as exc:
+        logger.warning("Discord webhook request failed: %s", exc)
 
 def request_join(request):
     # basic IP rate limit: 1 request / 60s per IP
@@ -92,6 +98,85 @@ def request_join(request):
         form = JoinRequestForm()
 
     return render(request, "core/request_join.html", {"form": form})
+
+def super_join_requests(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return HttpResponseForbidden("Forbidden")
+
+    if request.method == "POST":
+        join_request_id = request.POST.get("join_request_id")
+        new_status = request.POST.get("status")
+        if join_request_id and new_status in JoinRequest.Status.values:
+            JoinRequest.objects.filter(id=join_request_id).update(status=new_status)
+        return redirect("super_join_requests")
+
+    join_requests = JoinRequest.objects.order_by("-created_at")
+    return render(
+        request,
+        "core/super_join_requests.html",
+        {"join_requests": join_requests, "status_choices": JoinRequest.Status.choices},
+    )
+
+
+def agents_placeholder(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+    return render(request, "core/agents_placeholder.html")
+
+
+def super_tenants(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return HttpResponseForbidden("Forbidden")
+
+    tier_limits = getattr(settings, "TIER_SERVER_LIMITS", {})
+
+    if request.method == "POST":
+        slug = request.POST.get("slug")
+        new_tier = request.POST.get("subscription_tier")
+        is_active = request.POST.get("is_active") == "1"
+        if slug and new_tier in tier_limits:
+            Organization.objects.filter(slug=slug).update(
+                subscription_tier=new_tier,
+                is_active=is_active,
+            )
+        return redirect("super_tenants")
+
+    rows = []
+    for org in Organization.objects.order_by("name"):
+        rows.append({
+            "org": org,
+            "member_count": OrganizationMember.objects.filter(organization=org).count(),
+            "api_key_count": APIKey.objects.filter(organization=org).count(),
+            "server_count": ServerAlias.objects.filter(organization=org).count(),
+            "agent_count": Agent.objects.filter(organization=org).count(),
+            "allowed_servers": tier_limits.get(org.subscription_tier, 0),
+        })
+
+    return render(
+        request,
+        "core/super_tenants.html",
+        {
+            "rows": rows,
+            "tier_choices": Organization._meta.get_field("subscription_tier").choices,
+        },
+    )
+
+
+def super_tenant_detail(request, slug):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return HttpResponseForbidden("Forbidden")
+
+    org = get_object_or_404(Organization, slug=slug)
+    members = OrganizationMember.objects.filter(organization=org).select_related("user").order_by("user__email")
+
+    context = {
+        "org": org,
+        "members": members,
+        "api_key_count": APIKey.objects.filter(organization=org).count(),
+        "server_count": ServerAlias.objects.filter(organization=org).count(),
+        "agent_count": Agent.objects.filter(organization=org).count(),
+    }
+    return render(request, "core/super_tenant_detail.html", context)
 
 
 class LandingPageView(TemplateView):

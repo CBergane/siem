@@ -40,123 +40,11 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Custom Styles -->
-    <style>
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        @keyframes pulse-soft {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        
-        .animate-slide-in {
-            animation: slideInUp 0.5s ease-out;
-        }
-        
-        .animate-fade-in {
-            animation: fadeIn 0.3s ease-out;
-        }
-        
-        .animate-pulse-soft {
-            animation: pulse-soft 2s ease-in-out infinite;
-        }
-        
-        /* Smooth transitions */
-        * {
-            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-        }
-        
-        /* Gradient backgrounds */
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        
-        .gradient-bg-green {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        }
-        
-        .gradient-bg-red {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        }
-        
-        .gradient-bg-yellow {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        }
-        
-        /* Card hover effects */
-        .card-hover {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        
-        .card-hover:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-        }
-        
-        /* Loading spinner */
-        .htmx-indicator {
-            display: none;
-        }
-        
-        .htmx-request .htmx-indicator {
-            display: inline-block;
-        }
-        
-        .htmx-request.htmx-indicator {
-            display: inline-block;
-        }
-        
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: #1e293b;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
-        }
-        /* Keep Leaflet UI under the sticky navbar */
-        #worldMap {
-        position: relative;
-        z-index: 0;
-        }
-
-        /* Leaflet panes/controls can have high z-index; clamp them below navbar (z-50) */
-        #worldMap .leaflet-pane,
-        #worldMap .leaflet-top,
-        #worldMap .leaflet-bottom,
-        #worldMap .leaflet-control {
-        z-index: 10 !important;
-        }
-    </style>
-    
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-slate-900 text-gray-100 min-h-screen">
+<body class="{% block body_class %}bg-slate-900 text-gray-100 min-h-screen{% endblock %}">
 <!-- Navigation -->
+ {% block nav %}
 <nav class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 backdrop-blur-sm bg-opacity-95">
   {% if user.is_authenticated %}
 
@@ -194,6 +82,12 @@
               Servers
             </a>
 
+            <a href="{% url 'agents_placeholder' %}"
+               class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-slate-700 transition-colors">
+              <i data-lucide="cpu" class="w-4 h-4 inline mr-1"></i>
+              Agents
+            </a>
+
             <!-- Alerts Dropdown -->
             <div class="relative" x-data="{ open: false }">
               <button @click="open = !open"
@@ -212,7 +106,7 @@
                    x-transition:leave-start="transform opacity-100 scale-100"
                    x-transition:leave-end="transform opacity-0 scale-95"
                    class="absolute left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-lg py-1 z-50"
-                   style="display: none;">
+                   x-cloak>
                 <a href="{% url 'alerts:alert_rules_list' %}"
                    class="block px-4 py-2 text-sm text-gray-300 hover:bg-slate-700 hover:text-white transition-colors">
                   <i data-lucide="shield-check" class="w-4 h-4 inline mr-2"></i>
@@ -231,19 +125,49 @@
               </div>
             </div>
 
-            <a href="/organizations/"
+            <a href="/org/settings/keys/"
                class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-slate-700 transition-colors">
               <i data-lucide="building" class="w-4 h-4 inline mr-1"></i>
-              Orgs
+              Org Settings
             </a>
 
             <!-- Admin (superuser only) -->
             {% if user.is_superuser %}
-              <a href="/secure-admin-panel/"
-                 class="px-3 py-2 rounded-lg text-sm font-medium text-orange-300 hover:text-orange-200 hover:bg-slate-700 transition-colors">
-                <i data-lucide="shield" class="w-4 h-4 inline mr-1"></i>
-                Admin
-              </a>
+              <div class="relative" x-data="{ open: false }">
+                <button @click="open = !open"
+                        class="px-3 py-2 rounded-lg text-sm font-medium text-orange-300 hover:text-orange-200 hover:bg-slate-700 transition-colors flex items-center space-x-1">
+                  <i data-lucide="shield" class="w-4 h-4"></i>
+                  <span>Super</span>
+                  <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                </button>
+
+                <div x-show="open"
+                     @click.away="open = false"
+                     x-transition:enter="transition ease-out duration-100"
+                     x-transition:enter-start="transform opacity-0 scale-95"
+                     x-transition:enter-end="transform opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-75"
+                     x-transition:leave-start="transform opacity-100 scale-100"
+                     x-transition:leave-end="transform opacity-0 scale-95"
+                     class="absolute left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-lg py-1 z-50"
+                     x-cloak>
+                  <a href="{% url 'super_join_requests' %}"
+                     class="block px-4 py-2 text-sm text-orange-300 hover:bg-slate-700 hover:text-orange-200 transition-colors">
+                    <i data-lucide="user-check" class="w-4 h-4 inline mr-2"></i>
+                    Join Requests
+                  </a>
+                  <a href="{% url 'super_tenants' %}"
+                     class="block px-4 py-2 text-sm text-orange-300 hover:bg-slate-700 hover:text-orange-200 transition-colors">
+                    <i data-lucide="building" class="w-4 h-4 inline mr-2"></i>
+                    Tenants
+                  </a>
+                  <a href="/secure-admin-panel/"
+                     class="block px-4 py-2 text-sm text-orange-300 hover:bg-slate-700 hover:text-orange-200 transition-colors">
+                    <i data-lucide="shield" class="w-4 h-4 inline mr-2"></i>
+                    Django Admin
+                  </a>
+                </div>
+              </div>
             {% endif %}
           </div>
         </div>
@@ -297,8 +221,10 @@
     </div>
 
   {% endif %}
-</nav>    
+</nav>
+{% endblock %}
     <!-- Content -->
+     {% block main %}
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 animate-fade-in">
         {% if messages %}
         <div class="mb-6 space-y-2">
@@ -312,6 +238,7 @@
         
         {% block content %}{% endblock %}
     </main>
+    {% endblock %}
     
     <!-- Footer -->
     <footer class="mt-12 pb-6">

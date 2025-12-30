@@ -4,6 +4,7 @@ Organization models for multi-tenancy.
 from django.db import models
 from django.core.validators import RegexValidator
 from django.conf import settings
+from django.utils import timezone
 from apps.core.models import BaseModel
 from cryptography.fernet import Fernet
 import secrets
@@ -149,6 +150,9 @@ class Agent(BaseModel):
         on_delete=models.CASCADE,
         related_name='agents'
     )
+    secret_hash = models.CharField(max_length=255, default="")
+    secret_prefix = models.CharField(max_length=12, blank=True, db_index=True)
+    secret_created_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     last_seen_at = models.DateTimeField(null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
@@ -158,6 +162,34 @@ class Agent(BaseModel):
 
     def __str__(self):
         return self.agent_id
+
+    @staticmethod
+    def generate_secret():
+        return secrets.token_urlsafe(32)
+
+    @staticmethod
+    def _get_fernet_key():
+        key_bytes = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+        return base64.urlsafe_b64encode(key_bytes)
+
+    def set_secret(self, plain_secret):
+        cipher = Fernet(self._get_fernet_key())
+        self.secret_hash = cipher.encrypt(plain_secret.encode()).decode()
+        self.secret_prefix = plain_secret[:8]
+        self.secret_created_at = timezone.now()
+
+    def _get_secret(self):
+        cipher = Fernet(self._get_fernet_key())
+        return cipher.decrypt(self.secret_hash.encode()).decode()
+
+    def get_secret(self):
+        return self._get_secret()
+
+    def verify_secret(self, plain_secret):
+        try:
+            return self._get_secret() == plain_secret
+        except Exception:
+            return False
 
 
 class OrganizationMember(BaseModel):

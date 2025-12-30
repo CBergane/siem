@@ -5,7 +5,6 @@ Supports both X-API-Key and Authorization: Bearer formats.
 from functools import wraps
 import hashlib
 import hmac
-import os
 from datetime import timedelta
 from django.conf import settings
 from django.http import JsonResponse
@@ -95,11 +94,6 @@ def api_key_required(view_func):
     return wrapper
 
 
-def _get_agent_secret() -> str:
-    # Allow override via settings or env to keep config flexible.
-    return getattr(settings, "AGENT_HMAC_SECRET", "") or os.environ.get("AGENT_HMAC_SECRET", "")
-
-
 def agent_signature_required(view_func):
     """
     Validate agent headers + HMAC signature for ingest requests.
@@ -145,9 +139,10 @@ def agent_signature_required(view_func):
         if abs(now_ts - timestamp_value) > TIMESTAMP_SKEW_SECONDS:
             return JsonResponse({"error": "Expired timestamp"}, status=401)
 
-        secret = _get_agent_secret()
-        if not secret:
-            return JsonResponse({"error": "Agent secret not configured"}, status=401)
+        try:
+            secret = agent.get_secret()
+        except Exception:
+            return JsonResponse({"error": "Invalid signature"}, status=401)
 
         expected_signature = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected_signature, signature_header):

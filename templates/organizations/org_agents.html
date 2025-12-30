@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Org Agents{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-semibold">Agents</h1>
+      <div class="text-slate-400 text-sm">{{ org.name }} ({{ org.slug }})</div>
+    </div>
+    <a class="text-blue-300 hover:text-blue-200 underline" href="/org/settings/agents/">Change org</a>
+  </div>
+
+  {% if created_agent_secret %}
+  <div class="mb-6 bg-slate-800 border border-slate-700 rounded-lg p-4">
+    <div class="text-sm text-slate-300 mb-2">New agent secret (shown once):</div>
+    <pre class="bg-slate-900 border border-slate-700 rounded p-3 text-sm overflow-x-auto">FRC_AGENT_SECRET={{ created_agent_secret.secret }}</pre>
+    <div class="text-xs text-slate-400 mt-2">Agent ID: {{ created_agent_secret.agent_id }}</div>
+  </div>
+  {% endif %}
+
+  {% if can_manage %}
+  <form method="post" action="?org={{ org.slug }}" class="mb-6 space-y-2">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="create">
+    <input type="text" name="agent_id" placeholder="agent-id" class="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm w-full">
+    <textarea name="metadata" placeholder='Optional metadata JSON' class="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm w-full h-20"></textarea>
+    <label class="flex items-center gap-2 text-sm text-slate-300">
+      <input type="checkbox" name="is_active" value="1" checked>
+      Active
+    </label>
+    <button type="submit" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600">Create</button>
+  </form>
+  {% else %}
+  <div class="mb-6 text-slate-400 text-sm">Only owners/admins can create or deactivate agents.</div>
+  {% endif %}
+
+  <div class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-900">
+        <tr class="text-left">
+          <th class="px-4 py-2">Agent ID</th>
+          <th class="px-4 py-2">Active</th>
+          <th class="px-4 py-2">Created</th>
+          <th class="px-4 py-2">Last Seen</th>
+          <th class="px-4 py-2">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for agent in agents %}
+        <tr class="border-t border-slate-700">
+          <td class="px-4 py-2">{{ agent.agent_id }}</td>
+          <td class="px-4 py-2">{{ agent.is_active }}</td>
+          <td class="px-4 py-2">{{ agent.created_at }}</td>
+          <td class="px-4 py-2">{{ agent.last_seen_at|default:"-" }}</td>
+          <td class="px-4 py-2">
+            {% if can_manage %}
+            <form method="post" action="?org={{ org.slug }}" class="mb-2">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="toggle">
+              <input type="hidden" name="agent_id" value="{{ agent.agent_id }}">
+              <button type="submit" class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600">
+                {% if agent.is_active %}Deactivate{% else %}Activate{% endif %}
+              </button>
+            </form>
+            <form method="post" action="?org={{ org.slug }}">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="rotate">
+              <input type="hidden" name="agent_id" value="{{ agent.agent_id }}">
+              <button type="submit" class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600">Rotate secret</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="px-4 py-6 text-center text-slate-400">No agents yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-8">
+    <h2 class="text-lg font-semibold mb-2">Install snippet</h2>
+    <div class="text-sm text-slate-400 mb-2">API key and agent secret are separate.</div>
+    {% if created_agent_secret %}
+    <pre class="bg-slate-900 border border-slate-700 rounded p-3 text-sm overflow-x-auto">
+FRC_URL="{{ base_url }}"
+FRC_API_KEY="frc_your_api_key_here"
+FRC_AGENT_ID="{% if agent %}{{ agent.agent_id }}{% else %}agent-1{% endif %}"
+FRC_AGENT_SECRET="{{ created_agent_secret.secret }}"
+
+/usr/local/bin/frc-agent-services</pre>
+    {% else %}
+    <pre class="bg-slate-900 border border-slate-700 rounded p-3 text-sm overflow-x-auto">
+FRC_URL="{{ base_url }}"
+FRC_API_KEY="frc_your_api_key_here"
+FRC_AGENT_ID="{% if agent %}{{ agent.agent_id }}{% else %}agent-1{% endif %}"
+
+# Export FRC_AGENT_SECRET from the one-time secret shown after create/rotate.
+/usr/local/bin/frc-agent-services</pre>
+    {% endif %}
+    <div class="text-xs text-slate-400 mt-2">See full setup: <a class="text-blue-300 hover:text-blue-200 underline" href="/org/settings/install/?org={{ org.slug }}">Install instructions</a></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Join Requests{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-semibold mb-4">Join Requests</h1>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-900">
+        <tr class="text-left">
+          <th class="px-4 py-2">Status</th>
+          <th class="px-4 py-2">Email</th>
+          <th class="px-4 py-2">Company</th>
+          <th class="px-4 py-2">Created</th>
+          <th class="px-4 py-2">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for jr in join_requests %}
+        <tr class="border-t border-slate-700">
+          <td class="px-4 py-2">{{ jr.status }}</td>
+          <td class="px-4 py-2">{{ jr.email }}</td>
+          <td class="px-4 py-2">{{ jr.company|default:"-" }}</td>
+          <td class="px-4 py-2">{{ jr.created_at }}</td>
+          <td class="px-4 py-2">
+            <form method="post" class="flex items-center gap-2">
+              {% csrf_token %}
+              <input type="hidden" name="join_request_id" value="{{ jr.id }}">
+              <select name="status" class="bg-slate-900 border border-slate-700 rounded px-2 py-1">
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if value == jr.status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600">Update</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="px-4 py-6 text-center text-slate-400">No join requests.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

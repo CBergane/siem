@@ -4,7 +4,7 @@ import requests
 import random
 from datetime import datetime, timedelta
 
-API_KEY = 'frc_t3pAnXEtcirZE0p-hceTyDXfkPamVACd33z1IBigu3Y'
+API_KEY = ''
 BASE_URL = "http://localhost:8000/api/v1/ingest"
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",

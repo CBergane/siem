@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+error() {
+  echo "frc-agent: $*" >&2
+}
+
+require_env() {
+  local name="$1"
+  if [[ -z "${!name:-}" ]]; then
+    error "Missing required env var: $name"
+    exit 1
+  fi
+}
+
+require_env FRC_URL
+require_env FRC_API_KEY
+require_env FRC_AGENT_ID
+if [[ -n "${FRC_AGENT_SECRET:-}" ]]; then
+  AGENT_HMAC_SECRET="${FRC_AGENT_SECRET}"
+fi
+
+require_env AGENT_HMAC_SECRET
+
+timestamp="$(date +%s)"
+server_name="$(hostname -f 2>/dev/null || hostname)"
+url="${FRC_URL%/}/api/v1/ingest/inventory/services/"
+
+services_file="$(mktemp)"
+trap 'rm -f "$services_file"' EXIT
+
+if [[ -n "${FRC_ALLOWLIST:-}" ]]; then
+  IFS=',' read -r -a allowlist <<< "$FRC_ALLOWLIST"
+  for raw_name in "${allowlist[@]}"; do
+    name="$(echo "$raw_name" | xargs)"
+    [[ -z "$name" ]] && continue
+    state="$(systemctl is-active "$name" 2>/dev/null || echo "unknown")"
+    enabled="$(systemctl is-enabled "$name" 2>/dev/null || echo "disabled")"
+    printf '%s\t%s\t%s\n' "$name" "$state" "$enabled" >> "$services_file"
+  done
+else
+  systemctl list-units --type=service --all --no-pager --no-legend | while read -r line; do
+    [[ -z "$line" ]] && continue
+    name="$(echo "$line" | awk '{print $1}')"
+    state="$(echo "$line" | awk '{print $3}')"
+    enabled="$(systemctl is-enabled "$name" 2>/dev/null || echo "disabled")"
+    printf '%s\t%s\t%s\n' "$name" "$state" "$enabled" >> "$services_file"
+  done
+fi
+
+body="$(
+  python3 - "$server_name" "$timestamp" "$services_file" <<'PY'
+import json
+import sys
+
+server_name = sys.argv[1]
+timestamp = int(sys.argv[2])
+path = sys.argv[3]
+services = []
+
+with open(path, "r", encoding="utf-8") as handle:
+    for line in handle:
+        line = line.rstrip("\n")
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        name, state, enabled = parts[0], parts[1], parts[2]
+        services.append({
+            "name": name,
+            "state": state,
+            "enabled": enabled == "enabled",
+        })
+
+payload = {
+    "server_name": server_name,
+    "captured_at": timestamp,
+    "services": services,
+}
+
+print(json.dumps(payload, separators=(",", ":")))
+PY
+)"
+
+if [[ "${FRC_DRY_RUN:-}" == "1" ]]; then
+  echo "$body"
+  exit 0
+fi
+
+signature="$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$AGENT_HMAC_SECRET" -hex | awk '{print $2}')"
+
+response_file="$(mktemp)"
+http_code="$(
+  curl -sS -o "$response_file" -w "%{http_code}" \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: $FRC_API_KEY" \
+    -H "X-Agent-Id: $FRC_AGENT_ID" \
+    -H "X-Timestamp: $timestamp" \
+    -H "X-Signature: $signature" \
+    --data-binary "$body" \
+    "$url"
+)"
+
+if [[ "$http_code" != 202 && "$http_code" != 200 && "$http_code" != 201 ]]; then
+  error "Request failed with HTTP $http_code"
+  cat "$response_file" >&2 || true
+  rm -f "$response_file"
+  exit 1
+fi
+
+cat "$response_file"
+rm -f "$response_file"

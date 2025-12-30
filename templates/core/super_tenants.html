@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Tenants{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-semibold mb-4">Tenants</h1>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-900">
+        <tr class="text-left">
+          <th class="px-4 py-2">Org</th>
+          <th class="px-4 py-2">Tier</th>
+          <th class="px-4 py-2">Active</th>
+          <th class="px-4 py-2">Members</th>
+          <th class="px-4 py-2">API Keys</th>
+          <th class="px-4 py-2">Servers</th>
+          <th class="px-4 py-2">Agents</th>
+          <th class="px-4 py-2">Allowed</th>
+          <th class="px-4 py-2">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="border-t border-slate-700">
+          <td class="px-4 py-2">
+            <a class="text-blue-300 hover:text-blue-200 underline" href="{% url 'super_tenant_detail' row.org.slug %}">
+              {{ row.org.name }}
+            </a>
+            <div class="text-xs text-slate-400">{{ row.org.slug }}</div>
+          </td>
+          <td class="px-4 py-2">{{ row.org.subscription_tier }}</td>
+          <td class="px-4 py-2">{{ row.org.is_active }}</td>
+          <td class="px-4 py-2">{{ row.member_count }}</td>
+          <td class="px-4 py-2">{{ row.api_key_count }}</td>
+          <td class="px-4 py-2">{{ row.server_count }}</td>
+          <td class="px-4 py-2">{{ row.agent_count }}</td>
+          <td class="px-4 py-2">Allowed servers: {{ row.allowed_servers }}</td>
+          <td class="px-4 py-2">
+            <form method="post" class="flex items-center gap-2">
+              {% csrf_token %}
+              <input type="hidden" name="slug" value="{{ row.org.slug }}">
+              <input type="hidden" name="is_active" value="0">
+              <select name="subscription_tier" class="bg-slate-900 border border-slate-700 rounded px-2 py-1">
+                {% for value, label in tier_choices %}
+                <option value="{{ value }}" {% if value == row.org.subscription_tier %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <label class="flex items-center gap-1 text-xs">
+                <input type="checkbox" name="is_active" value="1" {% if row.org.is_active %}checked{% endif %}>
+                Active
+              </label>
+              <button type="submit" class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600">Save</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="9" class="px-4 py-6 text-center text-slate-400">No organizations found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Org Install{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-semibold">Install Instructions</h1>
+      <div class="text-slate-400 text-sm">{{ org.name }} ({{ org.slug }})</div>
+    </div>
+    <a class="text-blue-300 hover:text-blue-200 underline" href="/org/settings/install/">Change org</a>
+  </div>
+
+  <div class="mb-6">
+    <h2 class="text-lg font-semibold mb-2">Environment variables</h2>
+    <div class="text-sm text-slate-400 mb-2">API key and agent secret are separate.</div>
+    <pre class="bg-slate-900 border border-slate-700 rounded p-3 text-sm overflow-x-auto">
+API_BASE_URL="{{ base_url }}/api/v1/ingest/inventory/services/"
+API_KEY="frc_your_api_key_here"
+AGENT_ID="{% if agent %}{{ agent.agent_id }}{% else %}agent-1{% endif %}"
+FRC_AGENT_SECRET="your_agent_secret"</pre>
+  </div>
+
+  <div class="mb-6">
+    <h2 class="text-lg font-semibold mb-2">Single-file agent (Python stdlib)</h2>
+    <pre class="bg-slate-900 border border-slate-700 rounded p-3 text-sm overflow-x-auto">
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import time
+import hmac
+import hashlib
+import urllib.request
+
+API_URL = os.getenv("API_BASE_URL")
+API_KEY = os.getenv("API_KEY")
+AGENT_ID = os.getenv("AGENT_ID")
+SECRET = os.getenv("FRC_AGENT_SECRET") or os.getenv("AGENT_HMAC_SECRET")
+
+def list_services():
+    output = subprocess.check_output(
+        ["systemctl", "list-units", "--type=service", "--all", "--no-pager", "--no-legend"],
+        text=True,
+    )
+    services = []
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        name = parts[0]
+        state = parts[2]
+        try:
+            enabled = subprocess.check_output(["systemctl", "is-enabled", name], text=True).strip() == "enabled"
+        except subprocess.CalledProcessError:
+            enabled = False
+        services.append({"name": name, "state": state, "enabled": enabled})
+    return services
+
+payload = json.dumps({
+    "server_name": os.uname().nodename,
+    "captured_at": int(time.time()),
+    "services": list_services(),
+}).encode()
+
+signature = hmac.new(SECRET.encode(), payload, hashlib.sha256).hexdigest()
+req = urllib.request.Request(API_URL, data=payload, method="POST")
+req.add_header("Content-Type", "application/json")
+req.add_header("X-API-Key", API_KEY)
+req.add_header("X-Agent-Id", AGENT_ID)
+req.add_header("X-Timestamp", str(int(time.time())))
+req.add_header("X-Signature", signature)
+
+with urllib.request.urlopen(req) as resp:
+    print(resp.status)
+    print(resp.read().decode())</pre>
+  </div>
+
+  <div>
+    <h2 class="text-lg font-semibold mb-2">Test curl</h2>
+    <pre class="bg-slate-900 border border-slate-700 rounded p-3 text-sm overflow-x-auto">
+BODY='{"server_name":"host-01","services":[{"name":"ssh.service","state":"active","enabled":true}]}'
+TS=$(date +%s)
+SIG=$(python3 - <<'PY'
+import hmac, hashlib, os, sys
+secret = os.environ["FRC_AGENT_SECRET"].encode()
+body = os.environ["BODY"].encode()
+print(hmac.new(secret, body, hashlib.sha256).hexdigest())
+PY
+)
+curl -X POST "{{ base_url }}/api/v1/ingest/inventory/services/" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: frc_your_api_key_here" \
+  -H "X-Agent-Id: {% if agent %}{{ agent.agent_id }}{% else %}agent-1{% endif %}" \
+  -H "X-Timestamp: $TS" \
+  -H "X-Signature: $SIG" \
+  -d "$BODY"</pre>
+  </div>
+</div>
+{% endblock %}

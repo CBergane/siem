@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Tenant Details{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <div class="mb-4">
+    <a class="text-blue-300 hover:text-blue-200 underline" href="{% url 'super_tenants' %}">← Back to tenants</a>
+  </div>
+
+  <h1 class="text-2xl font-semibold mb-2">{{ org.name }}</h1>
+  <div class="text-slate-400 mb-6">{{ org.slug }}</div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded p-4">
+      <div class="text-slate-400 text-xs">Servers</div>
+      <div class="text-xl">{{ server_count }}</div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded p-4">
+      <div class="text-slate-400 text-xs">Agents</div>
+      <div class="text-xl">{{ agent_count }}</div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded p-4">
+      <div class="text-slate-400 text-xs">API Keys</div>
+      <div class="text-xl">{{ api_key_count }}</div>
+    </div>
+  </div>
+
+  <h2 class="text-lg font-semibold mb-2">Members</h2>
+  <div class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-900">
+        <tr class="text-left">
+          <th class="px-4 py-2">Email</th>
+          <th class="px-4 py-2">Role</th>
+          <th class="px-4 py-2">Active</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for member in members %}
+        <tr class="border-t border-slate-700">
+          <td class="px-4 py-2">{{ member.user.email }}</td>
+          <td class="px-4 py-2">{{ member.role }}</td>
+          <td class="px-4 py-2">{{ member.is_active }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3" class="px-4 py-6 text-center text-slate-400">No members found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
