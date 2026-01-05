@@ -167,6 +167,8 @@ SESSION_COOKIE_AGE = 86400
 SESSION_COOKIE_HTTPONLY = True
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
 # Email
 EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@firewall-center.local')
@@ -226,7 +228,7 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 # Webhook encryption key (CHANGE THIS IN PRODUCTION!)
 # Generate new key with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-WEBHOOK_ENCRYPTION_KEY = 'OpEJv_yBn_PgR5hHv1qyGO8W_fUv3g_gSmSiqOeJphw='
+WEBHOOK_ENCRYPTION_KEY = env("WEBHOOK_ENCRYPTION_KEY")
 
 # Rate limits for webhooks (notifications per minute)
 SLACK_RATE_LIMIT = 10
