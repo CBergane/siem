@@ -55,3 +55,4 @@ docker-compose.override.yml
 *.pem
 *.key
 *.crt
+config/settings.py.backup
