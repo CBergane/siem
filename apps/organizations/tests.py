@@ -63,6 +63,7 @@ class OrgSettingsTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "FRC_AGENT_SECRET=")
+        self.assertNotContains(response, "Agent management is coming soon")
 
         response = self.client.get(f"/org/settings/agents/?org={self.org.slug}")
         self.assertNotContains(response, "FRC_AGENT_SECRET=")
@@ -83,5 +84,27 @@ class OrgSettingsTests(TestCase):
         response = self.client.post(
             f"/org/settings/agents/?org={self.org.slug}",
             {"action": "create", "agent_id": "agent-2"},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_non_owner_cannot_rotate_agent(self):
+        agent = Agent(agent_id="agent-1", organization=self.org, is_active=True)
+        agent.set_secret(Agent.generate_secret())
+        agent.save()
+        viewer = get_user_model().objects.create_user(
+            email="viewer3@example.com",
+            username="viewer3",
+            password="password123",
+        )
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=viewer,
+            role="readonly",
+            is_active=True,
+        )
+        self.client.force_login(viewer)
+        response = self.client.post(
+            f"/org/settings/agents/?org={self.org.slug}",
+            {"action": "rotate", "agent_id": agent.agent_id},
         )
         self.assertEqual(response.status_code, 403)

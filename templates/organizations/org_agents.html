@@ -42,7 +42,7 @@
         <tr class="text-left">
           <th class="px-4 py-2">Agent ID</th>
           <th class="px-4 py-2">Active</th>
-          <th class="px-4 py-2">Created</th>
+          <th class="px-4 py-2">Secret Created</th>
           <th class="px-4 py-2">Last Seen</th>
           <th class="px-4 py-2">Action</th>
         </tr>
@@ -52,7 +52,7 @@
         <tr class="border-t border-slate-700">
           <td class="px-4 py-2">{{ agent.agent_id }}</td>
           <td class="px-4 py-2">{{ agent.is_active }}</td>
-          <td class="px-4 py-2">{{ agent.created_at }}</td>
+          <td class="px-4 py-2">{{ agent.secret_created_at|default:"-" }}</td>
           <td class="px-4 py-2">{{ agent.last_seen_at|default:"-" }}</td>
           <td class="px-4 py-2">
             {% if can_manage %}
