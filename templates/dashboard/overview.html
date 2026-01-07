@@ -386,10 +386,12 @@
         
         let html = '';
         countries.forEach((country, index) => {
-            const flag = country.country_code && country.country_code.length === 2 
-                ? String.fromCodePoint(0x1F1E6 + country.country_code.charCodeAt(0) - 65) + 
-                  String.fromCodePoint(0x1F1E6 + country.country_code.charCodeAt(1) - 65)
-                : '🌍';
+            const flag = country.flag || (
+                country.country_code && country.country_code.length === 2
+                    ? String.fromCodePoint(0x1F1E6 + country.country_code.charCodeAt(0) - 65) +
+                      String.fromCodePoint(0x1F1E6 + country.country_code.charCodeAt(1) - 65)
+                    : '🌍'
+            );
             
             let colorClass = 'bg-blue-500/20 text-blue-400';
             if (index === 0) colorClass = 'bg-red-500/20 text-red-400';

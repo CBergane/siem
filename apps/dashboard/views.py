@@ -382,9 +382,19 @@ def geographic_data(request):
             "flag": country_code_to_flag(cc),
         })
 
+    top_countries = []
+    for c in countries[:10]:
+        cc = (c["country_code"] or "").upper()
+        top_countries.append({
+            "country_code": cc,
+            "country_name": c["country_name"] or "Unknown",
+            "count": c["count"],
+            "flag": country_code_to_flag(cc),
+        })
+
     return JsonResponse({
         "markers": markers,
-        "top_countries": list(countries[:10]),
+        "top_countries": top_countries,
         "total_countries": len(markers),
         "total_attacks": logs.count(),
         "server_filter": server_filter,  # bra för debug i console
