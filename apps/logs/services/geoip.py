@@ -24,7 +24,7 @@ class GeoIPService:
     
     # Cache for private/reserved IPs
     PRIVATE_IP_RESULT = {
-        'country_code': 'XX',
+        'country_code': 'LAN',
         'country_name': 'Private Network',
         'city': 'Internal',
         'region': '',

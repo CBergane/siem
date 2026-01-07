@@ -1,89 +1,39 @@
 """
 Celery tasks for log processing.
 """
-from celery import shared_task
-from django.utils import timezone
-from .models import SecurityLog
-import requests
-import ipaddress
 import logging
 import time
 
+from celery import shared_task
+from django.conf import settings
+
+from .models import SecurityLog
+from .services.geoip import GeoIPService
+
 logger = logging.getLogger(__name__)
-
-
-def is_private_ip(ip_address):
-    """Check if IP is private (RFC1918)."""
-    try:
-        ip = ipaddress.ip_address(ip_address)
-        return ip.is_private
-    except:
-        return False
 
 
 @shared_task(name='logs.enrich_log_with_geoip')
 def enrich_log_with_geoip(log_id):
     """
-    Enrich log entry with GeoIP data from IP-API.com.
-    Free tier: 45 requests per minute.
+    Enrich log entry with GeoIP data.
     """
     try:
         log = SecurityLog.objects.get(id=log_id)
-        
-        # Skip if already enriched
-        if log.geo_enriched:
-            return
-        
-        # Check if private IP
-        if is_private_ip(log.src_ip):
-            logger.info(f"Private IP detected: {log.src_ip}")
-            
-            # Set special values for private IPs
-            log.country_code = 'LAN'
-            log.country_name = 'Private Network'
-            log.country_flag_emoji = '🏠'
-            log.city = 'Local'
-            log.region = 'Private'
-            log.isp = 'Internal Network'
-            log.geo_enriched = True
-            log.save()
-            return
-        
-        # Query IP-API.com for public IPs
-        response = requests.get(
-            f'http://ip-api.com/json/{log.src_ip}',
-            params={'fields': 'status,message,country,countryCode,region,city,isp,org,as,query'},
-            timeout=5
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            if data.get('status') == 'success':
-                # Get country code
-                country_code = data.get('countryCode', 'XX')
-                
-                # Update log - UTAN country_flag_emoji!
-                log.country_code = country_code  # Property beräknar automatiskt emoji!
-                log.country_name = data.get('country', 'Unknown')
-                log.city = data.get('city', '')
-                log.region = data.get('region', '')
-                log.isp = data.get('isp', '')
-                log.asn = data.get('as', '')
-                log.geo_enriched = True
-                log.geo_enriched_at = timezone.now()  # Glöm inte denna!
-                log.save()
-                
-                logger.info(f"Enriched {log.src_ip} → {data.get('country')}")
-            else:
-                logger.warning(f"IP-API returned: {data.get('message', 'Unknown error')}")
-        else:
-            logger.error(f"IP-API request failed: {response.status_code}")
-            
     except SecurityLog.DoesNotExist:
         logger.error(f"Log {log_id} not found")
+        return
     except Exception as e:
         logger.error(f"Error enriching log {log_id}: {str(e)}")
+        return
+
+    if not getattr(settings, "ENABLE_GEO_LOOKUP", False):
+        return
+
+    try:
+        GeoIPService.enrich_log(log, force=False)
+    except Exception as e:
+        logger.error(f"GeoIP enrich failed for log {log_id}: {str(e)}")
 
 
 def get_flag_emoji(country_code):
@@ -121,3 +71,25 @@ def periodic_enrich_check():
     if count > 0:
         logger.info(f"Found {count} unenriched logs, starting batch enrichment")
         batch_enrich_logs.delay()
+
+
+def enqueue_geoip_enrichment(log, allow_sync=True):
+    if not getattr(settings, "ENABLE_GEO_LOOKUP", False):
+        return False
+    if not log.src_ip:
+        return False
+    if log.geo_enriched and log.latitude is not None and log.longitude is not None:
+        return False
+
+    try:
+        enrich_log_with_geoip.delay(str(log.id))
+        return True
+    except Exception as exc:
+        logger.warning("Failed to queue GeoIP enrichment for log %s: %s", log.id, exc)
+        if not allow_sync:
+            return False
+        try:
+            return GeoIPService.enrich_log(log, force=False)
+        except Exception as sync_exc:
+            logger.warning("GeoIP sync enrich failed for log %s: %s", log.id, sync_exc)
+            return False

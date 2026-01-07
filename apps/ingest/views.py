@@ -15,7 +15,7 @@ from .parsers.nginx import NginxParser
 from .parsers.crowdsec import CrowdSecParser
 from .parsers.fail2ban import Fail2banParser
 from apps.logs.models import SecurityLog, ServiceSnapshot
-from apps.logs.tasks import enrich_log_with_geoip
+from apps.logs.tasks import enqueue_geoip_enrichment
 from apps.logs.services.server_discovery import ServerDiscoveryService
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,7 @@ def ingest_haproxy(request):
         
         # Trigger GeoIP enrichment
         for log in created_logs:
-            enrich_log_with_geoip.delay(log.id)
+            enqueue_geoip_enrichment(log, allow_sync=True)
     
     return JsonResponse({
         'success': True,
@@ -178,7 +178,7 @@ def ingest_nginx(request):
         
         # Trigger GeoIP enrichment
         for log in created_logs:
-            enrich_log_with_geoip.delay(log.id)
+            enqueue_geoip_enrichment(log, allow_sync=True)
     
     return JsonResponse({
         'success': True,
@@ -251,7 +251,7 @@ def ingest_crowdsec(request):
         
         # Trigger GeoIP enrichment
         for log in created_logs:
-            enrich_log_with_geoip.delay(log.id)
+            enqueue_geoip_enrichment(log, allow_sync=True)
     
     return JsonResponse({
         'success': True,
@@ -320,7 +320,7 @@ def ingest_fail2ban(request):
         
         # Trigger GeoIP enrichment
         for log in created_logs:
-            enrich_log_with_geoip.delay(log.id)
+            enqueue_geoip_enrichment(log, allow_sync=True)
     
     return JsonResponse({
         'success': True,
@@ -416,9 +416,6 @@ def ingest_generic(request):
                 organization=organization,
                 hostname=server_name
             )
-        
-        # Trigger enrichment
-        enrich_log_with_geoip.delay(log_entry.id)
         
         logger.info(f"Log ingested via generic endpoint for {organization.name} from {server_name}")
         

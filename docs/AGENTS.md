@@ -19,16 +19,10 @@ The signature is `HMAC-SHA256(secret, raw_request_body)` using the shared agent 
 - Allowed drift is ±300 seconds.
 - Requests outside the window are rejected.
 
-## Secret strategy (recommended)
-Prefer deriving per-agent secrets from a single master secret, so you avoid storing secrets in the database.
+## Secret strategy
+Agents use per-agent secrets generated in the org settings UI. The secret is shown once on create/rotate and stored encrypted.
 
-Example derivation:
+Environment example (agent side):
 ```
-agent_secret = HMAC-SHA256(AGENT_HMAC_MASTER_SECRET, agent_id)
-```
-
-Environment examples:
-```
-AGENT_HMAC_SECRET=change-me
-AGENT_HMAC_MASTER_SECRET=change-me
+FRC_AGENT_SECRET=change-me
 ```
