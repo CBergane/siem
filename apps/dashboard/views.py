@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 def _get_user_org_ids(request):
+    if request.user.is_superuser:
+        from apps.organizations.models import Organization
+        return list(Organization.objects.values_list("id", flat=True))
     return list(
         request.user.organization_memberships.filter(is_active=True)
         .values_list("organization_id", flat=True)
