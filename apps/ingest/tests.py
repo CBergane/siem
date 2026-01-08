@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.ingest.authentication import TIMESTAMP_SKEW_SECONDS
-from apps.logs.models import ServiceSnapshot
+from apps.logs.models import ServiceSnapshot, InventorySnapshot
 from apps.organizations.models import APIKey, Agent, Organization
 
 
@@ -175,3 +175,56 @@ class ServiceInventoryTests(TestCase):
         )
         self.assertEqual(response.status_code, 202)
         self.assertEqual(ServiceSnapshot.objects.count(), 1)
+
+
+class InventorySnapshotTests(TestCase):
+    def setUp(self):
+        self.organization = Organization.objects.create(name="Test Org", slug="test-org")
+        self.api_key_value = APIKey.generate_key()
+        self.api_key = APIKey(organization=self.organization, name="Agent Key")
+        self.api_key.encrypt_key(self.api_key_value)
+        self.api_key.save()
+        self.agent_secret = Agent.generate_secret()
+        self.agent = Agent(
+            agent_id="agent-1",
+            organization=self.organization,
+            is_active=True,
+        )
+        self.agent.set_secret(self.agent_secret)
+        self.agent.save()
+
+        self.url = reverse("ingest:ingest_inventory")
+        self.body_dict = {
+            "server_name": "host-01",
+            "payload": {"os": "Ubuntu", "kernel": "6.8.0", "uptime_seconds": 120},
+        }
+        self.body = json.dumps(self.body_dict)
+
+    def _signature(self, body: str) -> str:
+        return hmac.new(self.agent_secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+
+    def _headers(self, body: str):
+        return {
+            "HTTP_AUTHORIZATION": f"Bearer {self.api_key_value}",
+            "HTTP_X_AGENT_ID": self.agent.agent_id,
+            "HTTP_X_TIMESTAMP": str(int(time.time())),
+            "HTTP_X_SIGNATURE": self._signature(body),
+        }
+
+    def test_invalid_auth(self):
+        response = self.client.post(
+            self.url,
+            data=self.body,
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_valid_inventory(self):
+        response = self.client.post(
+            self.url,
+            data=self.body,
+            content_type="application/json",
+            **self._headers(self.body),
+        )
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(InventorySnapshot.objects.count(), 1)

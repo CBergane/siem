@@ -14,7 +14,7 @@ from .parsers.haproxy import HAProxyParser
 from .parsers.nginx import NginxParser
 from .parsers.crowdsec import CrowdSecParser
 from .parsers.fail2ban import Fail2banParser
-from apps.logs.models import SecurityLog, ServiceSnapshot
+from apps.logs.models import SecurityLog, ServiceSnapshot, InventorySnapshot
 from apps.logs.tasks import enqueue_geoip_enrichment
 from apps.logs.services.server_discovery import ServerDiscoveryService
 
@@ -472,3 +472,40 @@ def ingest_service_inventory(request):
     )
 
     return JsonResponse({'success': True}, status=202)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@api_key_required
+@agent_signature_required
+def ingest_inventory(request):
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    payload = data.get("payload")
+    if not isinstance(payload, dict) or not payload:
+        return JsonResponse({"error": 'Missing "payload" field'}, status=400)
+
+    server_name = data.get("server_name", "unknown")
+    timestamp_raw = data.get("timestamp", data.get("captured_at"))
+
+    if timestamp_raw is None:
+        captured_at = timezone.now()
+    else:
+        try:
+            captured_at = datetime.fromtimestamp(int(timestamp_raw))
+            if timezone.is_naive(captured_at):
+                captured_at = timezone.make_aware(captured_at)
+        except (TypeError, ValueError, OSError):
+            return JsonResponse({"error": 'Invalid "timestamp" value'}, status=400)
+
+    InventorySnapshot.objects.create(
+        organization=request.organization,
+        source_host=server_name,
+        timestamp=captured_at,
+        payload=payload,
+    )
+
+    return JsonResponse({"success": True}, status=202)

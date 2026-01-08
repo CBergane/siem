@@ -1,0 +1,10 @@
+[Unit]
+Description=FRC inventory snapshot agent
+After=network.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/frc-agent.env
+User=frc-agent
+Group=frc-agent
+ExecStart=/usr/local/bin/frc-agent-inventory

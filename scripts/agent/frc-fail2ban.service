@@ -1,0 +1,15 @@
+[Unit]
+Description=FRC Fail2ban log agent
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/frc-agent.env
+User=frc-agent
+Group=frc-agent
+ExecStart=/usr/local/bin/frc-agent-fail2ban-tail
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

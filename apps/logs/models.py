@@ -137,5 +137,16 @@ class ServiceSnapshot(BaseModel):
     captured_at = models.DateTimeField(db_index=True)
     services = models.JSONField(default=list)
 
+
+class InventorySnapshot(BaseModel):
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.CASCADE,
+        related_name='inventory_snapshots'
+    )
+    source_host = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(db_index=True)
+    payload = models.JSONField(default=dict)
+
 # Import ServerAlias model
 from .models_server_alias import ServerAlias

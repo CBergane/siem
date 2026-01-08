@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -u
+set -o pipefail
+
+error() {
+  echo "frc-agent-fail2ban: $*" >&2
+}
+
+require_env() {
+  local name="$1"
+  if [[ -z "${!name:-}" ]]; then
+    error "Missing required env var: $name"
+    exit 1
+  fi
+}
+
+require_cmd() {
+  local name="$1"
+  if ! command -v "$name" >/dev/null 2>&1; then
+    error "Missing required command: $name"
+    exit 1
+  fi
+}
+
+require_env FRC_URL
+require_env FRC_API_KEY
+require_env FRC_AGENT_ID
+if [[ -z "${FRC_AGENT_SECRET:-}" && -n "${AGENT_HMAC_SECRET:-}" ]]; then
+  FRC_AGENT_SECRET="${AGENT_HMAC_SECRET}"
+fi
+require_env FRC_AGENT_SECRET
+
+require_cmd curl
+require_cmd openssl
+require_cmd python3
+
+log_path="${FRC_FAIL2BAN_LOG_PATH:-/var/log/fail2ban.log}"
+server_name="$(hostname -f 2>/dev/null || hostname)"
+url="${FRC_URL%/}/api/v1/ingest/fail2ban/"
+
+send_line() {
+  local line="$1"
+  local timestamp body signature response_file http_code
+
+  timestamp="$(date +%s)"
+  body="$(
+    python3 - "$server_name" "$line" <<'PY'
+import json
+import sys
+
+server_name = sys.argv[1]
+line = sys.argv[2]
+
+payload = {
+    "server_name": server_name,
+    "log": line,
+}
+
+print(json.dumps(payload, separators=(",", ":")))
+PY
+  )"
+
+  if [[ "${FRC_DRY_RUN:-}" == "1" ]]; then
+    echo "$body"
+    return 0
+  fi
+
+  signature="$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$FRC_AGENT_SECRET" -hex | awk '{print $2}')"
+  response_file="$(mktemp)"
+  http_code="$(
+    curl -sS -o "$response_file" -w "%{http_code}" \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: $FRC_API_KEY" \
+      -H "X-Agent-Id: $FRC_AGENT_ID" \
+      -H "X-Timestamp: $timestamp" \
+      -H "X-Signature: $signature" \
+      --data-binary "$body" \
+      "$url"
+  )"
+
+  if [[ "$http_code" != 202 && "$http_code" != 200 && "$http_code" != 201 ]]; then
+    error "Request failed with HTTP $http_code"
+    cat "$response_file" >&2 || true
+    rm -f "$response_file"
+    return 1
+  fi
+
+  rm -f "$response_file"
+  return 0
+}
+
+if [[ -r "$log_path" ]]; then
+  tail -F "$log_path" | while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    if ! send_line "$line"; then
+      sleep 1
+    fi
+  done
+  exit 0
+fi
+
+if command -v journalctl >/dev/null 2>&1; then
+  journalctl -fu fail2ban -n 0 --no-pager | while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    if ! send_line "$line"; then
+      sleep 1
+    fi
+  done
+  exit 0
+fi
+
+error "Fail2ban log not found and journalctl unavailable."
+exit 1
