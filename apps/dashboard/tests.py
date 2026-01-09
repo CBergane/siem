@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -64,11 +66,20 @@ class InventoryOverviewTests(TestCase):
             timestamp=timezone.now(),
             payload={"os": "Ubuntu 22.04", "kernel": "6.5.0"},
         )
+        InventorySnapshot.objects.filter(id=self.snapshot_a.id).update(
+            created_at=timezone.now() - timedelta(hours=2)
+        )
         self.snapshot_b = InventorySnapshot.objects.create(
             organization=self.org,
             source_host="server-b",
             timestamp=timezone.now(),
             payload={"os": "Debian"},
+        )
+        InventorySnapshot.objects.create(
+            organization=self.org,
+            source_host="server-a",
+            timestamp=timezone.now(),
+            payload={"os": "Ubuntu 24.04"},
         )
         InventorySnapshot.objects.create(
             organization=self.other_org,
@@ -88,8 +99,12 @@ class InventoryOverviewTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("dashboard:inventory_overview"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'data-server-name="server-a"')
-        self.assertContains(response, 'data-server-name="server-b"')
+        content = response.content.decode("utf-8")
+        self.assertIn('data-server-name="server-a"', content)
+        self.assertIn('data-server-name="server-b"', content)
+        self.assertEqual(content.count('data-server-name="server-a"'), 1)
+        self.assertIn("Ubuntu 24.04", content)
+        self.assertNotIn("Ubuntu 22.04", content)
         self.assertNotContains(response, 'data-server-name="server-other"')
 
     def test_inventory_server_filter(self):
@@ -99,8 +114,35 @@ class InventoryOverviewTests(TestCase):
             {"server": "server-a"},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'data-server-name="server-a"')
+        content = response.content.decode("utf-8")
+        self.assertIn('data-server-name="server-a"', content)
         self.assertNotContains(response, 'data-server-name="server-b"')
+
+    def test_inventory_history_pagination(self):
+        for _ in range(60):
+            InventorySnapshot.objects.create(
+                organization=self.org,
+                source_host="server-a",
+                timestamp=timezone.now(),
+                payload={"os": "Ubuntu"},
+            )
+
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("dashboard:inventory_overview"),
+            {"server": "server-a"},
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertEqual(content.count('data-server-name="server-a"'), 50)
+
+        response_page_2 = self.client.get(
+            reverse("dashboard:inventory_overview"),
+            {"server": "server-a", "page": 2},
+        )
+        self.assertEqual(response_page_2.status_code, 200)
+        content_page_2 = response_page_2.content.decode("utf-8")
+        self.assertGreater(content_page_2.count('data-server-name="server-a"'), 0)
 
     def test_inventory_sanitizer_redacts(self):
         payload = {

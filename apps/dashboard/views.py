@@ -7,7 +7,8 @@ import re
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q, Avg
+from django.core.paginator import Paginator
+from django.db.models import Count, Q, Avg, OuterRef, Subquery
 from django.db.models.functions import TruncHour
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -42,7 +43,7 @@ def _validated_server_filter(user_org_ids, server_filter: str) -> str:
     return server_filter if ok else ""
 
 SENSITIVE_KEY_PATTERN = re.compile(
-    r"(password|secret|token|api_key|private_key|authorization|cookie)",
+    r"(password|secret|token|api_key|private_key|authorization|cookie|env_vars|environment_variables|\benv\b)",
     re.IGNORECASE,
 )
 JWT_PATTERN = re.compile(r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$")
@@ -384,18 +385,21 @@ def dashboard_overview(request):
 def inventory_overview(request):
     user_orgs = _get_user_org_ids(request)
 
-    hours_raw = request.GET.get("hours", "168")
+    server_filter = (request.GET.get("server") or "").strip()
+    server_filter = _validated_server_filter(user_orgs, server_filter)
+
+    history_mode = bool(server_filter)
+    default_hours = 24 if history_mode else 168
+
+    hours_raw = request.GET.get("hours", str(default_hours))
     try:
         hours = int(hours_raw)
     except (TypeError, ValueError):
-        hours = 168
+        hours = default_hours
     if hours <= 0:
-        hours = 168
+        hours = default_hours
     if hours > 720:
         hours = 720
-
-    server_filter = (request.GET.get("server") or "").strip()
-    server_filter = _validated_server_filter(user_orgs, server_filter)
 
     servers = ServerAlias.objects.filter(
         organization_id__in=user_orgs,
@@ -407,35 +411,31 @@ def inventory_overview(request):
         alias = servers.filter(original_hostname=server_filter).first()
         current_server_display = alias.display_name if alias else server_filter
 
-    inventory_server_names = list(
-        InventorySnapshot.objects.filter(
-            organization_id__in=user_orgs,
-        )
-        .values_list("source_host", flat=True)
-        .distinct()
-        .order_by("source_host")
-    )
-
     server_options = []
-    seen = set()
     for alias in servers:
         server_options.append({"value": alias.original_hostname, "label": alias.display_name})
-        seen.add(alias.original_hostname)
-    for name in inventory_server_names:
-        if name not in seen:
-            server_options.append({"value": name, "label": name})
-            seen.add(name)
 
     time_range = timezone.now() - timedelta(hours=hours)
-    snapshots_qs = InventorySnapshot.objects.filter(
+    base_qs = InventorySnapshot.objects.filter(
         organization_id__in=user_orgs,
         created_at__gte=time_range,
     ).select_related("organization").order_by("-created_at")
 
-    if server_filter:
-        snapshots_qs = snapshots_qs.filter(source_host=server_filter)
+    if history_mode:
+        snapshots_qs = base_qs.filter(source_host=server_filter).order_by("-created_at")
+        paginator = Paginator(snapshots_qs, 50)
+        page_obj = paginator.get_page(request.GET.get("page"))
+        snapshots = list(page_obj.object_list)
+    else:
+        latest_id_per_server = base_qs.filter(
+            source_host=OuterRef("source_host")
+        ).order_by("-created_at").values("id")[:1]
+        snapshots = list(
+            base_qs.filter(id=Subquery(latest_id_per_server))
+            .order_by("-created_at")[:200]
+        )
+        page_obj = None
 
-    snapshots = list(snapshots_qs[:200])
     inventory_items = []
     for snapshot in snapshots:
         payload = snapshot.payload or {}
@@ -452,6 +452,8 @@ def inventory_overview(request):
         "inventory_items": inventory_items,
         "hours": hours,
         "hours_options": [24, 72, 168],
+        "history_mode": history_mode,
+        "page_obj": page_obj,
         "current_server": server_filter,
         "current_server_display": current_server_display,
         "server_options": server_options,

@@ -1,9 +1,11 @@
+from datetime import timedelta
 from unittest import mock
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from apps.logs.models import SecurityLog
+from apps.logs.models import InventorySnapshot, SecurityLog
+from apps.logs.tasks import prune_inventory_snapshots
 from apps.organizations.models import Organization
 
 
@@ -59,3 +61,29 @@ class GeoIPEnrichmentTests(TestCase):
         )
 
         mock_delay.assert_called_with(str(log.id))
+
+
+class InventoryPruneTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Test Org", slug="test-org")
+
+    def test_prune_inventory_snapshots(self):
+        old_snapshot = InventorySnapshot.objects.create(
+            organization=self.org,
+            source_host="server-a",
+            timestamp=timezone.now(),
+            payload={"os": "Ubuntu"},
+        )
+        InventorySnapshot.objects.filter(id=old_snapshot.id).update(
+            created_at=timezone.now() - timedelta(days=31)
+        )
+        InventorySnapshot.objects.create(
+            organization=self.org,
+            source_host="server-a",
+            timestamp=timezone.now(),
+            payload={"os": "Ubuntu"},
+        )
+
+        deleted = prune_inventory_snapshots(days=30)
+        self.assertGreaterEqual(deleted, 1)
+        self.assertEqual(InventorySnapshot.objects.count(), 1)

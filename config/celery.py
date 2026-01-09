@@ -23,6 +23,11 @@ app.conf.beat_schedule = {
         'task': 'check_alert_rules',
         'schedule': 60.0,  # Every 60 seconds
     },
+    'prune-inventory-snapshots': {
+        'task': 'logs.prune_inventory_snapshots',
+        'schedule': crontab(hour=3, minute=30),
+        'args': (30,),
+    },
 }
 
 app.conf.timezone = 'UTC'

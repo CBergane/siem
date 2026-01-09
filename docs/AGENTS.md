@@ -49,6 +49,19 @@ This writes `/etc/frc-agent.env` (0600), installs scripts to `/usr/local/bin`, a
 ## Inventory UI
 Inventory snapshots are visible at Dashboard > Servers > Inventory. The UI shows a summary and a sanitized raw JSON view with secrets redacted.
 Inventory collection is enabled by running `scripts/install_agent.sh` with `ENABLE_INVENTORY_AGENT=1`.
+The inventory timer runs hourly by default; override it with a systemd drop-in if you need a different interval:
+```
+sudo systemctl edit frc-inventory.timer
+# Add:
+[Timer]
+OnUnitActiveSec=30min
+```
+
+## Retention
+Inventory snapshots older than 30 days are pruned by a daily Celery beat task. You can also run:
+```
+python manage.py prune_inventory_snapshots --days 30
+```
 
 ## Permissions and log paths
 - Nginx log tailer: `/var/log/nginx/access.log` (override with `FRC_NGINX_LOG_PATH`)

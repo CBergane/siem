@@ -8,7 +8,11 @@
         <div>
             <h1 class="text-3xl font-bold text-white mb-2">Inventory</h1>
             <p class="text-gray-400">
-                Latest inventory snapshots
+                {% if history_mode %}
+                Inventory history
+                {% else %}
+                Latest inventory per server
+                {% endif %}
                 {% if current_server_display %}
                 - Server: <span class="font-semibold text-white">{{ current_server_display }}</span>
                 {% endif %}
@@ -17,7 +21,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center gap-3">
             <div class="flex items-center space-x-2">
                 {% for option in hours_options %}
-                    <a href="?hours={{ option }}{% if current_server %}&server={{ current_server|urlencode }}{% endif %}"
+                    <a href="?hours={{ option }}{% if history_mode and current_server %}&view=history&server={{ current_server|urlencode }}{% endif %}"
                        class="px-3 py-1 text-xs rounded-lg transition-colors {% if hours == option %}bg-blue-600 text-white hover:bg-blue-700{% else %}bg-slate-700 text-gray-300 hover:bg-slate-600{% endif %}">
                         {% if option == 24 %}24h{% elif option == 72 %}3d{% else %}7d{% endif %}
                     </a>
@@ -29,7 +33,7 @@
                     <i data-lucide="server" class="w-4 h-4 inline"></i> Server:
                 </label>
                 <select name="server"
-                        onchange="window.location.href='?hours={{ hours }}&server=' + encodeURIComponent(this.value)"
+                        onchange="if (this.value) { window.location.href='?view=history&hours={{ hours }}&server=' + encodeURIComponent(this.value); } else { window.location.href='?hours={{ hours }}'; }"
                         class="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500">
                     <option value="">All Servers</option>
                     {% for option in server_options %}
@@ -40,6 +44,12 @@
                     {% endfor %}
                 </select>
             </div>
+            {% if history_mode %}
+            <a href="{% url 'dashboard:inventory_overview' %}"
+               class="px-3 py-2 rounded-lg text-xs bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">
+                Back to latest
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -164,6 +174,27 @@
         </div>
         {% endfor %}
     </div>
+    {% if history_mode and page_obj and page_obj.paginator.num_pages > 1 %}
+    <div class="flex items-center justify-between text-sm text-gray-400">
+        <div>
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </div>
+        <div class="flex items-center space-x-2">
+            {% if page_obj.has_previous %}
+            <a href="?view=history&server={{ current_server|urlencode }}&hours={{ hours }}&page={{ page_obj.previous_page_number }}"
+               class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors">
+                Previous
+            </a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?view=history&server={{ current_server|urlencode }}&hours={{ hours }}&page={{ page_obj.next_page_number }}"
+               class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors">
+                Next
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
     {% else %}
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center text-gray-400">
         No inventory snapshots yet.

@@ -3,11 +3,13 @@ Celery tasks for log processing.
 """
 import logging
 import time
+from datetime import timedelta
 
 from celery import shared_task
 from django.conf import settings
+from django.utils import timezone
 
-from .models import SecurityLog
+from .models import SecurityLog, InventorySnapshot
 from .services.geoip import GeoIPService
 
 logger = logging.getLogger(__name__)
@@ -93,3 +95,18 @@ def enqueue_geoip_enrichment(log, allow_sync=True):
         except Exception as sync_exc:
             logger.warning("GeoIP sync enrich failed for log %s: %s", log.id, sync_exc)
             return False
+
+
+def prune_inventory_snapshots(days=30):
+    cutoff = timezone.now() - timedelta(days=days)
+    deleted, _ = InventorySnapshot.objects.filter(created_at__lt=cutoff).delete()
+    return deleted
+
+
+@shared_task(name="logs.prune_inventory_snapshots")
+def prune_inventory_snapshots_task(days=30):
+    try:
+        return prune_inventory_snapshots(days=days)
+    except Exception as exc:
+        logger.warning("Inventory prune failed: %s", exc)
+        return 0
