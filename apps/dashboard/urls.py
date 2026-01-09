@@ -8,6 +8,7 @@ app_name = 'dashboard'
 
 urlpatterns = [
     path('', views.dashboard_overview, name='overview'),
+    path('agents/install/', views.agents_install, name='agents_install'),
     path('inventory/', views.inventory_overview, name='inventory_overview'),
     path('partials/recent-logs/', views.recent_logs_partial, name='recent_logs_partial'),
     path('partials/stats/', views.stats_partial, name='stats_partial'),

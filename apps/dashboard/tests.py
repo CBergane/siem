@@ -158,3 +158,34 @@ class InventoryOverviewTests(TestCase):
         self.assertEqual(sanitized["jwt"], "[redacted]")
         self.assertEqual(sanitized["hex"], "[redacted]")
         self.assertEqual(sanitized["safe"], "hello")
+
+
+class AgentsInstallPageTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email="install@example.com",
+            username="install",
+            password="password123",
+        )
+        self.org = Organization.objects.create(name="Org Install", slug="org-install")
+
+    def test_agents_install_requires_login(self):
+        response = self.client.get(reverse("dashboard:agents_install"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_agents_install_requires_org_membership(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("dashboard:agents_install"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_agents_install_for_member(self):
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role="owner",
+            is_active=True,
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("dashboard:agents_install"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Install Agents")

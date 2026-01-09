@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Install Agents - Firewall Report Center{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="animate-slide-in">
+        <h1 class="text-3xl font-bold text-white mb-2">Install Agents</h1>
+        <p class="text-gray-400">Copy these commands to the target server. Run with sudo.</p>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover">
+        <h2 class="text-lg font-semibold text-white mb-3">Prerequisites</h2>
+        <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+            <li>curl</li>
+            <li>bash</li>
+            <li>systemd + journald</li>
+            <li>python3 (or jq)</li>
+            <li>openssl</li>
+        </ul>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover">
+        <h2 class="text-lg font-semibold text-white mb-3">Create credentials</h2>
+        <p class="text-sm text-gray-400">
+            Create an API key and agent ID in Org Settings before installing.
+        </p>
+        <div class="mt-3 flex flex-wrap gap-3">
+            <a href="{% url 'org_settings_keys' %}"
+               class="px-3 py-2 rounded-lg bg-slate-700 text-gray-200 hover:bg-slate-600 text-sm">
+                API Keys
+            </a>
+            <a href="{% url 'org_settings_agents' %}"
+               class="px-3 py-2 rounded-lg bg-slate-700 text-gray-200 hover:bg-slate-600 text-sm">
+                Agents
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover">
+        <h2 class="text-lg font-semibold text-white mb-3">1) Create /etc/frc-agent.env</h2>
+        <p class="text-sm text-gray-400 mb-3">
+            Keep <span class="text-white">FRC_AGENT_SECRET</span> private. Do not paste it into chat or tickets.
+        </p>
+        <pre class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-xs text-slate-200 whitespace-pre-wrap break-words">
+sudo sh -c 'cat &gt; /etc/frc-agent.env &lt;&lt;EOF
+FRC_URL={{ frc_url }}
+FRC_API_KEY=frc_xxx
+FRC_AGENT_ID=agent-1
+FRC_AGENT_SECRET=secret_xxx
+ENABLE_NGINX_AGENT=1
+ENABLE_FAIL2BAN_AGENT=1
+ENABLE_INVENTORY_AGENT=1
+EOF'
+sudo chmod 600 /etc/frc-agent.env
+        </pre>
+        <p class="text-xs text-gray-500 mt-2">Disable any agent by setting its flag to 0.</p>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover">
+        <h2 class="text-lg font-semibold text-white mb-3">2) Run the installer</h2>
+        <p class="text-sm text-gray-400 mb-3">
+            Run the installer on the target server. If the repo is not present on the server, copy
+            <code>scripts/install_agent.sh</code> and the <code>scripts/agent/</code> folder first.
+        </p>
+        <pre class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-xs text-slate-200 whitespace-pre-wrap break-words">
+sudo FRC_URL={{ frc_url }} \
+  FRC_API_KEY=frc_xxx \
+  FRC_AGENT_ID=agent-1 \
+  FRC_AGENT_SECRET=secret_xxx \
+  ENABLE_NGINX_AGENT=1 \
+  ENABLE_FAIL2BAN_AGENT=1 \
+  ENABLE_INVENTORY_AGENT=1 \
+  ./scripts/install_agent.sh
+        </pre>
+        <p class="text-xs text-gray-500 mt-2">Tip: set <code>FRC_DRY_RUN=1</code> to preview actions.</p>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover">
+        <h2 class="text-lg font-semibold text-white mb-3">3) Verify</h2>
+        <pre class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-xs text-slate-200 whitespace-pre-wrap break-words">
+systemctl status frc-nginx
+systemctl status frc-fail2ban
+systemctl status frc-inventory.timer
+journalctl -u frc-nginx -n 50 --no-pager
+journalctl -u frc-fail2ban -n 50 --no-pager
+journalctl -u frc-inventory.service -n 50 --no-pager
+        </pre>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover">
+        <h2 class="text-lg font-semibold text-white mb-3">Troubleshooting</h2>
+        <ul class="space-y-2 text-sm text-gray-300">
+            <li><span class="text-white">400</span> Missing headers or invalid JSON.</li>
+            <li><span class="text-white">401/403</span> Invalid API key, agent ID, or signature.</li>
+            <li><span class="text-white">500</span> Server-side error; check app logs.</li>
+            <li>Check service logs with <code>journalctl -u frc-*</code>.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

@@ -9,6 +9,7 @@ from datetime import timedelta
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Q, Avg, OuterRef, Subquery
+from django.http import HttpResponseForbidden
 from django.db.models.functions import TruncHour
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -281,6 +282,20 @@ def extract_inventory_summary(payload):
     })
 
     return summary
+
+
+@login_required
+def agents_install(request):
+    user_orgs = _get_user_org_ids(request)
+    if not user_orgs:
+        return HttpResponseForbidden("No organization access")
+
+    base_url = request.build_absolute_uri("/").rstrip("/")
+
+    context = {
+        "frc_url": base_url,
+    }
+    return render(request, "dashboard/agents_install.html", context)
 
 def _choose_step_minutes(hours: int) -> int:
     if hours <= 1:

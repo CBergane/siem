@@ -46,6 +46,9 @@ sudo FRC_URL=https://your-domain.example \
 
 This writes `/etc/frc-agent.env` (0600), installs scripts to `/usr/local/bin`, and installs systemd units.
 
+## Install via UI
+Use the in-app guide at `/dashboard/agents/install/` for copy/paste commands, verification, and troubleshooting.
+
 ## Inventory UI
 Inventory snapshots are visible at Dashboard > Servers > Inventory. The UI shows a summary and a sanitized raw JSON view with secrets redacted.
 Inventory collection is enabled by running `scripts/install_agent.sh` with `ENABLE_INVENTORY_AGENT=1`.

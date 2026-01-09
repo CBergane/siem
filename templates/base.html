@@ -94,6 +94,12 @@
               Agents
             </a>
 
+            <a href="{% url 'dashboard:agents_install' %}"
+               class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-slate-700 transition-colors">
+              <i data-lucide="terminal" class="w-4 h-4 inline mr-1"></i>
+              Install Agents
+            </a>
+
             <!-- Alerts Dropdown -->
             <div class="relative" x-data="{ open: false }">
               <button @click="open = !open"
