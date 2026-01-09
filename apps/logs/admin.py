@@ -2,7 +2,7 @@
 Admin configuration for logs app.
 """
 from django.contrib import admin
-from .models import SecurityLog
+from .models import SecurityLog, InventorySnapshot
 
 
 @admin.register(SecurityLog)
@@ -39,3 +39,14 @@ class SecurityLogAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(InventorySnapshot)
+class InventorySnapshotAdmin(admin.ModelAdmin):
+    list_display = ["created_at", "organization", "server_name"]
+    list_filter = ["organization"]
+    search_fields = ["source_host"]
+
+    @admin.display(description="Server")
+    def server_name(self, obj):
+        return obj.source_host

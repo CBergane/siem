@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory - Firewall Report Center{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between animate-slide-in gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2">Inventory</h1>
+            <p class="text-gray-400">
+                Latest inventory snapshots
+                {% if current_server_display %}
+                - Server: <span class="font-semibold text-white">{{ current_server_display }}</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div class="flex items-center space-x-2">
+                {% for option in hours_options %}
+                    <a href="?hours={{ option }}{% if current_server %}&server={{ current_server|urlencode }}{% endif %}"
+                       class="px-3 py-1 text-xs rounded-lg transition-colors {% if hours == option %}bg-blue-600 text-white hover:bg-blue-700{% else %}bg-slate-700 text-gray-300 hover:bg-slate-600{% endif %}">
+                        {% if option == 24 %}24h{% elif option == 72 %}3d{% else %}7d{% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <label class="text-sm text-gray-400">
+                    <i data-lucide="server" class="w-4 h-4 inline"></i> Server:
+                </label>
+                <select name="server"
+                        onchange="window.location.href='?hours={{ hours }}&server=' + encodeURIComponent(this.value)"
+                        class="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500">
+                    <option value="">All Servers</option>
+                    {% for option in server_options %}
+                    <option value="{{ option.value }}"
+                            {% if current_server == option.value %}selected{% endif %}>
+                        {{ option.label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    {% if inventory_items %}
+    <div class="space-y-4">
+        {% for item in inventory_items %}
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card-hover" data-server-name="{{ item.snapshot.source_host }}">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">{{ item.snapshot.source_host }}</h3>
+                    <p class="text-xs text-gray-400">
+                        Received {{ item.snapshot.created_at|date:"Y-m-d H:i" }}
+                        {% if item.snapshot.timestamp %}- Captured {{ item.snapshot.timestamp|date:"Y-m-d H:i" }}{% endif %}
+                    </p>
+                </div>
+                {% if user.is_superuser %}
+                <span class="text-xs text-gray-400">{{ item.snapshot.organization.name }}</span>
+                {% endif %}
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                {% if item.summary.os %}
+                <div>
+                    <div class="text-xs text-gray-400">OS</div>
+                    <div class="text-white">{{ item.summary.os }}</div>
+                </div>
+                {% endif %}
+                {% if item.summary.kernel %}
+                <div>
+                    <div class="text-xs text-gray-400">Kernel</div>
+                    <div class="text-white">{{ item.summary.kernel }}</div>
+                </div>
+                {% endif %}
+                {% if item.summary.uptime %}
+                <div>
+                    <div class="text-xs text-gray-400">Uptime</div>
+                    <div class="text-white">{{ item.summary.uptime }}</div>
+                </div>
+                {% endif %}
+                {% if item.summary.cpu_model or item.summary.cpu_count %}
+                <div>
+                    <div class="text-xs text-gray-400">CPU</div>
+                    <div class="text-white">
+                        {% if item.summary.cpu_model %}{{ item.summary.cpu_model }}{% endif %}
+                        {% if item.summary.cpu_count %}({{ item.summary.cpu_count }} vCPU){% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if item.summary.ram_total %}
+                <div>
+                    <div class="text-xs text-gray-400">RAM</div>
+                    <div class="text-white">{{ item.summary.ram_total }}</div>
+                </div>
+                {% endif %}
+                {% if item.summary.disk_count != None or item.summary.disk_total %}
+                <div>
+                    <div class="text-xs text-gray-400">Disks</div>
+                    <div class="text-white">
+                        {% if item.summary.disk_count != None %}{{ item.summary.disk_count }} disks{% endif %}
+                        {% if item.summary.disk_total %}- {{ item.summary.disk_total }} total{% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if item.summary.public_ips %}
+                <div>
+                    <div class="text-xs text-gray-400">Public IPs</div>
+                    <div class="text-white">{{ item.summary.public_ips|join:", " }}</div>
+                </div>
+                {% endif %}
+                {% if item.summary.containers_count != None %}
+                <div>
+                    <div class="text-xs text-gray-400">Containers</div>
+                    <div class="text-white">
+                        {{ item.summary.containers_count }}
+                        {% if item.summary.containers_top %}
+                        - {{ item.summary.containers_top|join:", " }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if item.summary.services_total != None %}
+                <div>
+                    <div class="text-xs text-gray-400">Services</div>
+                    <div class="text-white">
+                        {% if item.summary.services_active != None %}{{ item.summary.services_active }} active{% endif %}
+                        {% if item.summary.services_total != None %}- {{ item.summary.services_total }} total{% endif %}
+                        {% if item.summary.services_top %}
+                        - {{ item.summary.services_top|join:", " }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if item.summary.ports_count != None %}
+                <div>
+                    <div class="text-xs text-gray-400">Listening Ports</div>
+                    <div class="text-white">
+                        {{ item.summary.ports_count }}
+                        {% if item.summary.ports_top %}
+                        - {{ item.summary.ports_top|join:", " }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if item.summary.updates_security != None or item.summary.updates_packages != None %}
+                <div>
+                    <div class="text-xs text-gray-400">Updates</div>
+                    <div class="text-white">
+                        {% if item.summary.updates_security != None %}{{ item.summary.updates_security }} security{% endif %}
+                        {% if item.summary.updates_packages != None %}- {{ item.summary.updates_packages }} packages{% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <details class="mt-4">
+                <summary class="text-sm text-blue-300 cursor-pointer">View raw inventory (sanitized)</summary>
+                <div class="mt-2 bg-slate-900/60 border border-slate-700 rounded-lg p-3 text-xs text-slate-200">
+                    <pre class="whitespace-pre-wrap break-words">{{ item.payload_pretty }}</pre>
+                </div>
+                <p class="mt-2 text-xs text-gray-500">Sensitive fields are redacted in the UI.</p>
+            </details>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center text-gray-400">
+        No inventory snapshots yet.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

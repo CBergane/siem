@@ -46,6 +46,10 @@ sudo FRC_URL=https://your-domain.example \
 
 This writes `/etc/frc-agent.env` (0600), installs scripts to `/usr/local/bin`, and installs systemd units.
 
+## Inventory UI
+Inventory snapshots are visible at Dashboard > Servers > Inventory. The UI shows a summary and a sanitized raw JSON view with secrets redacted.
+Inventory collection is enabled by running `scripts/install_agent.sh` with `ENABLE_INVENTORY_AGENT=1`.
+
 ## Permissions and log paths
 - Nginx log tailer: `/var/log/nginx/access.log` (override with `FRC_NGINX_LOG_PATH`)
 - Fail2ban tailer: `/var/log/fail2ban.log` (override with `FRC_FAIL2BAN_LOG_PATH`) or journald (`journalctl -fu fail2ban`)
