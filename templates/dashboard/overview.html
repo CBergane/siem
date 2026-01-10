@@ -293,6 +293,7 @@
     let currentMapHours = 24;
     
     function initMap() {
+        if (!hasLeaflet) return;
         const el = document.getElementById('worldMap');
         if (!el) return;
 
