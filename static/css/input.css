@@ -7,6 +7,13 @@
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
       "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   }
+  .leaflet-container,
+  .leaflet-popup-content,
+  .leaflet-tooltip,
+  #topCountries {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif !important;
+  }
 }
 
 /* Scrollbar styling */
