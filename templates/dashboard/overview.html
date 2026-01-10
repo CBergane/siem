@@ -293,19 +293,9 @@
     let currentMapHours = 24;
     
     function initMap() {
-        const mapEl = document.getElementById('worldMap');
-        if (!mapEl) {
-            console.warn('Map container not found.');
-            return;
-        }
-        if (!hasLeaflet) {
-            const statusEl = document.getElementById('mapStatus');
-            if (statusEl) {
-                statusEl.textContent = '(Map unavailable)';
-            }
-            return;
-        }
-        console.debug('initMap');
+        const el = document.getElementById('worldMap');
+        if (!el) return;
+
         worldMap = L.map('worldMap', {
             center: [20, 0],
             zoom: 2,
@@ -313,16 +303,21 @@
             maxZoom: 10,
             worldCopyJump: true
         });
-        
+
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
             subdomains: 'abcd',
             maxZoom: 19
         }).addTo(worldMap);
-        
+
         markersLayer = L.layerGroup().addTo(worldMap);
+
+        // <- den här gör ofta hela skillnaden
+        setTimeout(() => worldMap.invalidateSize(), 150);
+
         loadMapData(24);
-    }
+        }
+
     
     function setActiveMapButton(hours) {
         document.querySelectorAll('.map-btn').forEach(btn => {
