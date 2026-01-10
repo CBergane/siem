@@ -115,7 +115,7 @@
                     <span class="text-gray-400">Critical</span>
                 </div>
             </div>
-            <div id="worldMap" class="h-[400px] rounded-lg overflow-hidden"></div>
+            <div id="worldMap" class="h-96 rounded-lg overflow-hidden"></div>
         </div>
         
         <!-- Top Countries -->
@@ -124,7 +124,7 @@
                 <i data-lucide="globe" class="w-5 h-5 mr-2 text-purple-400"></i>
                 Top Countries
             </h3>
-            <div id="topCountries" class="space-y-3 flex-1 overflow-y-auto max-h-[400px]">
+            <div id="topCountries" class="space-y-3 flex-1 overflow-y-auto max-h-96">
                 <div class="text-center py-8">
                     <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
                     <p class="text-gray-400 text-sm mt-2">Loading countries...</p>
@@ -153,7 +153,7 @@
                 </button>
             </div>
         </div>
-        <div id="ispChart" class="h-[300px]">
+        <div id="ispChart" class="h-72">
             <canvas id="ispChartCanvas"></canvas>
         </div>
     </div>
@@ -187,7 +187,7 @@
                 </button>
             </div>
         </div>
-        <div class="h-[300px]">
+        <div class="h-72">
             <canvas id="timelineChart"></canvas>
         </div>
     </div>
@@ -225,7 +225,7 @@
                 <i data-lucide="alert-triangle" class="w-5 h-5 mr-2 text-red-400"></i>
                 Top Attackers
             </h3>
-            <div class="space-y-3 flex-1 overflow-y-auto max-h-[500px]">
+            <div class="space-y-3 flex-1 overflow-y-auto max-h-96">
                 {% for ip in top_ips %}
                 <div class="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
                     <div class="flex items-center space-x-3">
@@ -255,7 +255,7 @@
             <div hx-get="{% url 'dashboard:recent_logs_partial' %}"
                  hx-trigger="load, every 5s"
                  hx-swap="innerHTML"
-                 class="space-y-2 flex-1 overflow-y-auto max-h-[500px]">
+                 class="space-y-2 flex-1 overflow-y-auto max-h-96">
                 <!-- Recent logs will load here -->
                 <div class="text-center py-8">
                     <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
@@ -270,9 +270,20 @@
 
 {% block extra_js %}
 <script>
-    // Chart.js default config
-    Chart.defaults.color = '#94a3b8';
-    Chart.defaults.borderColor = '#334155';
+    const hasChart = typeof window.Chart !== 'undefined';
+    const hasLeaflet = typeof window.L !== 'undefined';
+
+    if (!hasChart) {
+        console.warn('Chart.js not loaded; charts will not render.');
+    } else {
+        // Chart.js default config
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#334155';
+    }
+
+    if (!hasLeaflet) {
+        console.warn('Leaflet not loaded; map will not render.');
+    }
     
     // ========================================
     // WORLD MAP
@@ -282,6 +293,19 @@
     let currentMapHours = 24;
     
     function initMap() {
+        const mapEl = document.getElementById('worldMap');
+        if (!mapEl) {
+            console.warn('Map container not found.');
+            return;
+        }
+        if (!hasLeaflet) {
+            const statusEl = document.getElementById('mapStatus');
+            if (statusEl) {
+                statusEl.textContent = '(Map unavailable)';
+            }
+            return;
+        }
+        console.debug('initMap');
         worldMap = L.map('worldMap', {
             center: [20, 0],
             zoom: 2,
@@ -314,11 +338,16 @@
     }
     
     function loadMapData(hours) {
+        if (!markersLayer) {
+            return;
+        }
         currentMapHours = hours;
         setActiveMapButton(hours);
         
         const statusEl = document.getElementById('mapStatus');
-        statusEl.textContent = 'Loading...';
+        if (statusEl) {
+            statusEl.textContent = 'Loading...';
+        }
         
         // GET SERVER FILTER
         const urlParams = new URLSearchParams(window.location.search);
@@ -328,7 +357,9 @@
             .then(response => response.json())
             .then(data => {
                 markersLayer.clearLayers();
-                statusEl.textContent = `(${data.total_attacks} attacks from ${data.total_countries} countries)`;
+                if (statusEl) {
+                    statusEl.textContent = `(${data.total_attacks} attacks from ${data.total_countries} countries)`;
+                }
                 
                 data.markers.forEach(marker => {
                     const baseSize = 8;
@@ -367,12 +398,18 @@
             })
             .catch(error => {
                 console.error('Error loading map data:', error);
-                statusEl.textContent = '(Error loading data)';
+                if (statusEl) {
+                    statusEl.textContent = '(Error loading data)';
+                }
             });
     }
     
     function updateTopCountries(countries) {
         const container = document.getElementById('topCountries');
+        if (!container) {
+            return;
+        }
+        console.debug('updateTopCountries', countries.length);
         
         if (countries.length === 0) {
             container.innerHTML = `
@@ -447,6 +484,10 @@
         
         const statusEl = document.getElementById('ispStatus');
         statusEl.textContent = 'Loading...';
+        if (!hasChart) {
+            statusEl.textContent = '(Chart.js not loaded)';
+            return;
+        }
         
         // GET SERVER FILTER
         const urlParams = new URLSearchParams(window.location.search);
@@ -572,6 +613,10 @@
 
     const statusEl = document.getElementById('timelineStatus');
     statusEl.textContent = 'Loading...';
+    if (!hasChart) {
+        statusEl.textContent = '(Chart.js not loaded)';
+        return;
+    }
 
     // GET SERVER FILTER FROM URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -706,7 +751,9 @@
     // SOURCE & ACTION CHARTS
     // ========================================
     
-    const sourceCtx = document.getElementById('sourceChart').getContext('2d');
+    const sourceCanvas = document.getElementById('sourceChart');
+    if (hasChart && sourceCanvas) {
+    const sourceCtx = sourceCanvas.getContext('2d');
     new Chart(sourceCtx, {
         type: 'doughnut',
         data: {
@@ -744,8 +791,11 @@
             }
         }
     });
+    }
     
-const actionCtx = document.getElementById('actionChart').getContext('2d');
+const actionCanvas = document.getElementById('actionChart');
+if (hasChart && actionCanvas) {
+const actionCtx = actionCanvas.getContext('2d');
 
   const actionLabels = [{% for stat in action_stats %}'{{ stat.action }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
   const actionCounts = [{% for stat in action_stats %}{{ stat.count }}{% if not forloop.last %}, {% endif %}{% endfor %}];
@@ -785,5 +835,6 @@ const actionCtx = document.getElementById('actionChart').getContext('2d');
       }
     }
   });
+}
   </script>
 {% endblock %}
