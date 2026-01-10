@@ -88,17 +88,42 @@
               Inventory
             </a>
 
-            <a href="/org/settings/agents/"
-               class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-slate-700 transition-colors">
-              <i data-lucide="cpu" class="w-4 h-4 inline mr-1"></i>
-              Agents
-            </a>
+            <!-- Agents Dropdown -->
+            <div class="relative" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
+              <button @click="open = !open"
+                      @keydown.escape="open = false"
+                      aria-haspopup="true"
+                      :aria-expanded="open.toString()"
+                      class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1">
+                <i data-lucide="cpu" class="w-4 h-4"></i>
+                <span>Agents</span>
+                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+              </button>
 
-            <a href="{% url 'dashboard:agents_install' %}"
-               class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-slate-700 transition-colors">
-              <i data-lucide="terminal" class="w-4 h-4 inline mr-1"></i>
-              Install Agents
-            </a>
+              <div x-show="open"
+                   @click.away="open = false"
+                   x-transition:enter="transition ease-out duration-100"
+                   x-transition:enter-start="transform opacity-0 scale-95"
+                   x-transition:enter-end="transform opacity-100 scale-100"
+                   x-transition:leave="transition ease-in duration-75"
+                   x-transition:leave-start="transform opacity-100 scale-100"
+                   x-transition:leave-end="transform opacity-0 scale-95"
+                   class="absolute left-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-lg py-1 z-50"
+                   x-cloak>
+                <a href="/org/settings/agents/"
+                   @click="open = false"
+                   class="block px-4 py-2 text-sm text-gray-300 hover:bg-slate-700 hover:text-white transition-colors">
+                  <i data-lucide="cpu" class="w-4 h-4 inline mr-2"></i>
+                  Agents
+                </a>
+                <a href="{% url 'dashboard:agents_install' %}"
+                   @click="open = false"
+                   class="block px-4 py-2 text-sm text-gray-300 hover:bg-slate-700 hover:text-white transition-colors">
+                  <i data-lucide="terminal" class="w-4 h-4 inline mr-2"></i>
+                  Install Agents
+                </a>
+              </div>
+            </div>
 
             <!-- Alerts Dropdown -->
             <div class="relative" x-data="{ open: false }">
