@@ -374,14 +374,14 @@
                     
                     circle.bindPopup(`
                         <div class="text-center p-2">
-                            <div class="text-3xl mb-2">${marker.flag}</div>
+                            <div class="mb-2">${window.flagHtml ? window.flagHtml(marker.country_code) : '🌍'}</div>
                             <div class="font-bold text-base text-gray-900">${marker.country_name}</div>
                             <div class="text-sm text-gray-700 mt-1"><strong>${marker.count}</strong> attacks</div>
                             <div class="text-xs text-gray-500 mt-1">${marker.country_code}</div>
                         </div>
                     `);
                     
-                    circle.bindTooltip(`${marker.flag} ${marker.country_name}: ${marker.count}`, {
+                    circle.bindTooltip(`${marker.country_name}: ${marker.count}`, {
                         permanent: false,
                         direction: 'top',
                         offset: [0, -10]
@@ -419,12 +419,7 @@
         
         let html = '';
         countries.forEach((country, index) => {
-            const flag = country.flag || (
-                country.country_code && country.country_code.length === 2
-                    ? String.fromCodePoint(0x1F1E6 + country.country_code.charCodeAt(0) - 65) +
-                      String.fromCodePoint(0x1F1E6 + country.country_code.charCodeAt(1) - 65)
-                    : '🌍'
-            );
+            const flag = window.flagHtml ? window.flagHtml(country.country_code) : '🌍';
             
             let colorClass = 'bg-blue-500/20 text-blue-400';
             if (index === 0) colorClass = 'bg-red-500/20 text-red-400';

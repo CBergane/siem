@@ -52,6 +52,7 @@ Use the in-app guide at `/dashboard/agents/install/` for copy/paste commands, ve
 ## Inventory UI
 Inventory snapshots are visible at Dashboard > Servers > Inventory. The UI shows a summary and a sanitized raw JSON view with secrets redacted.
 Inventory collection is enabled by running `scripts/install_agent.sh` with `ENABLE_INVENTORY_AGENT=1`.
+Country flags in the UI are loaded from `https://flagcdn.com` (allow in CSP img-src if CSP is enabled).
 The inventory timer runs hourly by default; override it with a systemd drop-in if you need a different interval:
 ```
 sudo systemctl edit frc-inventory.timer
