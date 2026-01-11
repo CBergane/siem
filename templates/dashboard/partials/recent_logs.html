@@ -27,7 +27,7 @@
             <div class="flex items-center space-x-2 flex-wrap">
                 <p class="font-mono text-sm text-gray-200">{{ log.src_ip }}</p>
                 {% if log.geo_enriched %}
-                <span class="text-lg" title="{{ log.country_name }} - {{ log.city }}">{{ log.country_flag_emoji }}</span>
+                <span class="text-lg flag-slot" data-cc="{{ log.country_code }}" title="{{ log.country_name }} - {{ log.city }}"></span>
                 {% endif %}
                 {% if log.source_host and log.source_host != 'unknown' %}
                 <span class="px-2 py-0.5 bg-slate-600/50 border border-slate-500 rounded text-gray-300 text-xs font-medium">

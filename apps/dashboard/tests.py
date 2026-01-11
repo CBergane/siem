@@ -41,7 +41,7 @@ class GeographicDataTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertTrue(payload["top_countries"])
-        self.assertIn("flag", payload["top_countries"][0])
+        self.assertIn("country_code", payload["top_countries"][0])
 
 
 class InventoryOverviewTests(TestCase):

@@ -720,7 +720,6 @@ def geographic_data(request):
             "lon": float(lon),
             "count": count,
             "color": color,
-            "flag": country_code_to_flag(cc),
         })
 
     top_countries = []
@@ -730,7 +729,6 @@ def geographic_data(request):
             "country_code": cc,
             "country_name": c["country_name"] or "Unknown",
             "count": c["count"],
-            "flag": country_code_to_flag(cc),
         })
 
     return JsonResponse({

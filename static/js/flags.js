@@ -18,7 +18,7 @@
         'alt="' + cc.toUpperCase() + ' flag" ' +
         'loading="lazy" ' +
         'referrerpolicy="no-referrer" ' +
-        'onerror="this.outerHTML=\\\'<span class=\\\\\\\"text-xl\\\\\\\">&#127757;</span>\\\'"' +
+        'onerror="this.outerHTML=\\\'&#127757;\\\'"' +
         ' />'
       );
     } catch (err) {
@@ -26,5 +26,15 @@
     }
   }
 
+  function renderFlags(root) {
+    var scope = root || document;
+    var nodes = scope.querySelectorAll('.flag-slot');
+    nodes.forEach(function (node) {
+      var cc = node.getAttribute('data-cc') || '';
+      node.innerHTML = flagHtml(cc);
+    });
+  }
+
   window.flagHtml = flagHtml;
+  window.renderFlags = renderFlags;
 })();

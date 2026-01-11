@@ -48,7 +48,7 @@
                     <td class="px-6 py-4 whitespace-nowrap">
                         {% if log.geo_enriched and log.country_code != 'XX' %}
                         <div class="flex items-center space-x-2">
-                            <span class="text-lg">{{ log.country_flag_emoji }}</span>
+                            <span class="text-lg flag-slot" data-cc="{{ log.country_code }}"></span>
                             <div>
                                 <div class="text-sm text-gray-300">{{ log.country_name }}</div>
                                 <div class="text-xs text-gray-500">{{ log.city|default:"-" }}</div>

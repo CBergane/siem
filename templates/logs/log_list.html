@@ -138,7 +138,7 @@
                             <div class="flex items-center space-x-2">
                                 <span class="font-mono text-sm text-gray-200">{{ log.src_ip }}</span>
                                 {% if log.geo_enriched %}
-                                <span class="text-lg" title="{{ log.country_name }}">{{ log.country_flag_emoji }}</span>
+                                <span class="text-lg flag-slot" data-cc="{{ log.country_code }}" title="{{ log.country_name }}"></span>
                                 {% endif %}
                             </div>
                             {% if log.city %}

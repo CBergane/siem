@@ -272,10 +272,16 @@
     <script>
         // Initialize Lucide icons
         lucide.createIcons();
+        if (window.renderFlags) {
+            window.renderFlags(document);
+        }
         
         // Re-initialize icons after HTMX swaps
         document.body.addEventListener('htmx:afterSwap', function(evt) {
             lucide.createIcons();
+            if (window.renderFlags) {
+                window.renderFlags(evt.target);
+            }
         });
         
         // Show loading indicator
